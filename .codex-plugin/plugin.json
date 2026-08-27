@@ -6,8 +6,8 @@
     "name": "AndreaScuto",
     "url": "https://github.com/AndreaScuto"
   },
-  "homepage": "https://github.com/AndreaScuto/LunaMax",
-  "repository": "https://github.com/AndreaScuto/LunaMax",
+  "homepage": "https://github.com/AndreaScuto/lunamaxing",
+  "repository": "https://github.com/AndreaScuto/lunamaxing",
   "keywords": [
     "codex",
     "orchestration",
@@ -25,7 +25,7 @@
       "Read",
       "Write"
     ],
-    "websiteURL": "https://github.com/AndreaScuto/LunaMax",
+    "websiteURL": "https://github.com/AndreaScuto/lunamaxing",
     "defaultPrompt": [
       "Use LunaMaxing to decompose this task into bounded parallel work and verify every result.",
       "Use LunaMaxing to investigate this repository without changing files.",
