@@ -1,6 +1,4 @@
 interface:
-  display_name: "LunaMaxing"
+  display_name: "LunaMax"
   short_description: "Parallel bounded work with Sol verification"
-  icon_small: "./assets/lunamax.png"
-  icon_large: "./assets/lunamax.png"
   default_prompt: "Use $lunamaxing to decompose this task into bounded parallel work and verify every result."
