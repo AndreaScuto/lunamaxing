@@ -1,121 +1,223 @@
 ---
 name: lunamaxing
-description: Orchestrate decomposable coding work with a strong manager and bounded parallel workers, using native Codex multi-agent tools and explicit evidence gates. Use when subtasks are independently verifiable; skip trivial, tightly coupled, or purely sequential work.
+description: Orchestrate decomposable coding work with a strong manager and bounded Luna workers, using explicit task packets, evidence gates, adaptive parallelism, and Sol-owned final verification. Use when work is independently verifiable; skip trivial, tightly coupled, or purely sequential tasks.
 ---
 
 # LunaMaxing
 
-Use a manager-worker shape without building a swarm:
+LunaMaxing is a verification-first manager–worker policy:
 
-    Sol (plan, decisions, integration) -> Luna workers (bounded execution) -> Sol (verification, final acceptance)
+~~~text
+Sol (global context, decisions, integration)
+  -> Luna workers (bounded execution and evidence)
+  -> Sol (verification, integration, final acceptance)
+~~~
 
-The manager is the authority. A worker result is a candidate plus evidence, never an accepted fact.
+The manager is the authority. A worker result is a candidate plus evidence,
+never an accepted fact.
 
-## Operating rules
+## Apply the smallest useful mode
 
-- Keep repository-wide context, decomposition, architecture, prioritization, ambiguity, conflict resolution, integration, risk management, and the final completion decision in Sol (or the strongest available orchestrator).
-- Prefer the strongest available orchestrator at high/xhigh reasoning. Prefer Luna at maximum reasoning for narrow worker packets when those model/reasoning overrides are supported; otherwise use the runtime's available settings without pretending an override exists.
-- Workers execute; they do not plan the whole task, recursively spawn workers, negotiate with one another, or expand scope.
-- Treat max_workers = 5 as a ceiling, not a target. Use 0..min(independent_ready_tasks, configured_ceiling, runtime_limit) workers.
-- Parallelize only bounded, low-coupling, verifiable, context-light, recoverable work. Keep global judgment, unresolved architecture, and tightly coupled edits in Sol.
+Classify the user's task before delegating:
+
+1. **Local** — do trivial, one-file, tightly coupled, high-risk, or ambiguous
+   work in Sol. A narrow read-only investigation is the only delegation that
+   may help an otherwise sequential task.
+2. **Sequential** — keep dependent steps in Sol or execute them as ordered
+   waves. Do not manufacture parallelism.
+3. **Delegated** — build a dependency graph and delegate only ready nodes that
+   are bounded, low-coupling, context-light, recoverable, and independently
+   verifiable.
+
+The orchestration tax is real. Use zero workers when direct execution is
+faster, safer, or clearer.
+
+## Authority and non-goals
+
+- Sol owns the user objective, repository-wide context, decomposition,
+  architecture, prioritization, ambiguity, conflict resolution, integration,
+  risk management, and the decision that the whole task is complete.
+- Workers execute a packet. They do not plan the whole task, recursively spawn
+  workers, negotiate with peers, silently widen scope, or approve completion.
+- Never build a swarm, persistent scheduler, queue, database, message bus, or
+  autonomous post-turn promise for this skill. Use native runtime primitives
+  and safe fallbacks.
 - Consensus is not verification. Agent count is not a confidence metric.
-- Define acceptance and verification before spawning. Sol alone decides whether the complete task is done.
 
-## Classify before delegating
+## Runtime and model policy
 
-1. Trivial or one-file work: do it locally.
-2. Sequential, highly coupled, high-risk, or ambiguous work: keep it in Sol, or delegate only a narrow investigation.
-3. Decomposable work: build a dependency graph, identify the ready wave, and delegate only independent nodes.
+- Prefer the strongest available orchestrator at high or xhigh reasoning. The
+  target is Sol/GPT-5.6 when that model exists, but never claim an unavailable
+  model or reasoning override.
+- Prefer Luna/GPT-5.6 at maximum reasoning for narrow worker packets when the
+  runtime supports per-child overrides. Otherwise use the available runtime
+  defaults without pretending an override occurred.
+- Treat max_workers = 5 as a ceiling, not a target:
+  0..min(independent_ready_tasks, configured_ceiling, runtime_limit) workers.
+- Treat max_retries_per_packet = 1 as the default retry budget.
+- Inspect runtime capabilities before a real wave. Read
+  references/runtime-capabilities.md when parallel, background, model override,
+  completion, or workspace isolation behavior matters.
+- Distinguish useful parallelism during the active orchestration turn from
+  autonomous background continuation. Never promise the latter unless the
+  runtime explicitly guarantees it.
 
-If a worker discovers that its packet is broader or less bounded than expected, it must return NEEDS_ORCHESTRATOR_DECISION rather than inventing a wider plan.
+## Decision and execution procedure
+
+1. **Understand.** Restate the objective, constraints, repository state, and
+   what observable result would count as success.
+2. **Classify.** Choose local, sequential, or delegated mode. Record why
+   delegation adds value and what it costs.
+3. **Preflight.** Inspect available child-spawn, nonblocking, completion,
+   model/reasoning override, structured-result, and isolation capabilities.
+4. **Plan.** Build a dependency graph. Mark each node's role, ownership,
+   dependencies, acceptance criteria, validation, and risk. Select one ready
+   wave within the worker ceiling.
+5. **Specify.** Define the verification contract before spawning. Send every
+   worker the packet in references/protocols.md.
+6. **Spawn.** Launch all independent packets in the wave together. Give each
+   write-capable worker one non-overlapping ownership domain; reviewers are
+   read-only by default.
+7. **Continue.** While children run, Sol performs useful non-overlapping work
+   such as planning, context gathering, or integration preparation. Do not
+   spawn one worker and immediately block before launching other ready work.
+8. **Collect.** Wait only when a result is a critical-path dependency or the
+   runtime requires an explicit collection point. Record status and evidence.
+9. **Verify.** Inspect the actual diff, files, tool output, tests, sources, and
+   scope. Reject unsupported claims, unrelated edits, and contradictory
+   results. A passing worker report alone is insufficient.
+10. **Integrate.** Accept only verified results, resolve conflicts in Sol, and
+    launch the next wave only after the current wave is understood.
+11. **Finish.** Run repository-level validation appropriate to the change. Sol
+    alone decides DONE, reports known risks, and tells the user what remains.
 
 ## Worker roles
 
 Roles are behavioral presets, not authorities:
 
-- Designer — inspect bounded UI/UX requirements and return findings, affected components, proposed changes, assumptions, and ambiguities. Do not redefine product scope or make irreversible architecture decisions.
-- Researcher — verify official documentation, APIs, library behavior, and upstream issues. Label each claim FACT, INFERENCE, RECOMMENDATION, or UNKNOWN; include sources for external claims.
-- Fixer — reproduce and implement a bounded correction only within assigned files/scope, then run focused validation. Do not perform unrelated cleanup.
-- Tester — derive behavioral/regression tests from the contract, exercise boundary cases, and report failures plainly. Test behavior, not the Fixer's implementation shape.
-- Reviewer — inspect a patch for correctness, regressions, security, concurrency, lifecycle, resource, and acceptance-criteria issues. Return findings and evidence; do not declare the whole task complete.
-- Librarian / code navigator — locate symbols, callers, callees, tests, module boundaries, and dependencies; return a compact map. Use GitNexus, LSP, or indexes for structural questions when available and textual search for literals, comments, configuration, and dynamic references. An index is navigation evidence, not runtime truth.
+- **Designer** — inspect bounded UI/UX requirements; return findings, affected
+  components, proposed changes, assumptions, and ambiguities. Do not redefine
+  product scope or make irreversible architecture decisions.
+- **Researcher** — verify official documentation, APIs, libraries, and upstream
+  behavior. Label claims FACT, INFERENCE, RECOMMENDATION, or UNKNOWN; include
+  sources for external claims.
+- **Fixer** — reproduce and implement a bounded correction only in assigned
+  scope, then run focused validation. Do not perform unrelated cleanup.
+- **Tester** — derive behavioral/regression tests from the contract, exercise
+  boundary cases, and report failures plainly. Test behavior, not the Fixer's
+  implementation shape.
+- **Reviewer** — inspect a patch for correctness, regressions, security,
+  concurrency, lifecycle, resource, and acceptance issues. Return findings and
+  evidence; do not declare the whole task complete.
+- **Librarian / code navigator** — locate symbols, callers, callees, tests,
+  module boundaries, and dependencies, then return a compressed map. Prefer
+  GitNexus, LSP, or indexes for structural questions when available and text
+  search for literals, comments, configuration, and dynamic references. Read
+  references/librarian.md for its evidence contract.
 
-## Task packet
+## Minimum worker packet
 
-Send every worker a compact, explicit packet containing:
+Every packet must be explicit and small:
 
-    role: fixer
-    objective: "Fix refresh-token expiration handling"
-    scope:
-      - src/auth/token.ts
-      - src/auth/session.ts
-    do_not_touch:
-      - database schema
-      - frontend
-      - unrelated formatting
-    context: "Refresh tokens remain usable after explicit logout."
-    acceptance_criteria:
-      - "logout invalidates the refresh token"
-      - "existing login flow remains unchanged"
-    validation:
-      - "npm test -- auth"
-      - "npm run typecheck"
-    output_contract:
-      - summary
-      - files_changed
-      - tests_run
-      - evidence
-      - assumptions
-      - unresolved_risks
+~~~yaml
+role: fixer
+objective: "Fix refresh-token expiration handling"
+scope:
+  - src/auth/token.ts
+  - src/auth/session.ts
+do_not_touch:
+  - database schema
+  - frontend
+  - unrelated formatting
+context: "Refresh tokens remain usable after explicit logout."
+acceptance_criteria:
+  - "logout invalidates the refresh token"
+  - "existing login flow remains unchanged"
+validation:
+  - "npm test -- auth"
+  - "npm run typecheck"
+ownership: "src/auth/**"
+dependencies: []
+output_contract:
+  - summary
+  - files_changed
+  - tests_run
+  - evidence
+  - assumptions
+  - unresolved_risks
+~~~
 
-Use the smallest scope that can satisfy the objective. Include ownership and forbidden scope for write-capable work.
+Use the smallest scope that can satisfy the objective. Include forbidden scope
+and ownership for every write-capable packet. If the task is broader or less
+bounded than expected, return NEEDS_ORCHESTRATOR_DECISION; do not invent a
+wider plan.
 
-## Waves and write ownership
+## Verification, failure, and state
 
-1. Inspect runtime capabilities: parallel spawn, nonblocking child execution, completion notification, per-child model/reasoning overrides, and isolated worktrees.
-2. Spawn one complete wave of independent packets. Do not spawn a worker and immediately block for it before launching other independent work.
-3. Continue useful, non-overlapping Sol work while workers run.
-4. Collect results when they become critical-path dependencies, then verify before launching the next wave.
-5. Assign one writable ownership domain per worker per wave. Prefer disjoint paths; make reviewers read-only. If isolation is unavailable, serialize overlapping edits and inspect the shared diff after each accepted change.
+Define these gates before execution:
 
-Do not build a scheduler or promise autonomous post-turn continuation. Background completion and wake-up behavior are runtime-dependent; when a capability is missing, use a safe fallback such as fewer workers, local execution, read-only review, or sequential waves.
+- **Implementation:** the diff stays within scope and has no unrelated files.
+- **Correctness:** every acceptance criterion is satisfied.
+- **Validation:** the narrowest relevant tests/static checks pass, with
+  regression coverage where appropriate.
+- **Evidence:** each claim maps to observable code, tool output, test output,
+  or cited documentation.
+- **Integration:** accepted results do not conflict with other accepted work.
 
-## Verification gate
+Use this state model for reasoning and reporting:
 
-For each packet, define before execution:
+~~~text
+UNDERSTAND -> CLASSIFY -> PLAN -> DELEGATE -> EXECUTE -> COLLECT
+     ^                                               |
+     |                                               v
+  BLOCKED <--- NEEDS_ORCHESTRATOR_DECISION       VERIFY
+     ^                         |                 /    \
+     |                         +-- retry <= 1 --/      \
+     +------------------------- Sol investigates       INTEGRATE
+                                                          |
+                                                          v
+                                                FINAL_VALIDATE -> DONE
+~~~
 
-- implementation: the diff stays within scope and contains no unrelated files;
-- correctness: every acceptance criterion is satisfied;
-- tests/static checks: the narrowest relevant commands pass, plus regression coverage where appropriate;
-- evidence: each claim maps to observable code, tool output, test output, or cited documentation;
-- integration: accepted results do not conflict with other accepted results.
+Worker statuses are only:
 
-After collection, Sol must inspect the actual diff and evidence, run repository-level validation appropriate to the change, reject unsupported claims, and resolve contradictions. A passing worker report alone is insufficient.
+~~~text
+DONE | NEEDS_ORCHESTRATOR_DECISION | BLOCKED
+~~~
 
-Allow at most one retry per packet with a corrected contract. After a second failure, stop delegating that packet and investigate or implement it in Sol. Do not spawn more workers merely to obtain consensus.
+Allow at most one retry per packet with a corrected contract. After a second
+failure, stop delegating that packet and investigate or implement it in Sol.
+Do not spawn more workers merely to obtain consensus.
 
-Worker output should be concise and structured:
+## Parallelism and write safety
 
-    status: DONE | NEEDS_ORCHESTRATOR_DECISION | BLOCKED
-    summary: "..."
-    files_changed: []
-    tests_run:
-      - command: "..."
-        result: "pass/fail/not-run"
-    evidence: []
-    assumptions: []
-    unresolved_risks: []
+- Spawn a complete wave of independent ready packets; do not serialize them by
+  habit.
+- Keep useful Sol work running while children execute.
+- Use one writable ownership domain per worker per wave. Prefer disjoint paths.
+- Make reviewers read-only. If isolation is unavailable, serialize overlapping
+  edits and inspect the shared diff after every accepted change.
+- Treat indexes, caches, and worker summaries as navigation evidence, not
+  runtime truth. Sol must verify high-impact conclusions directly.
+- If a capability is missing, fall back to fewer workers, local execution,
+  read-only review, or sequential waves. Never pretend isolation, wake-up, or
+  model overrides exist.
 
-## Execution algorithm
+## Final Sol report
 
-1. Understand the user's objective and repository constraints.
-2. Classify the task and decide whether delegation adds more value than its orchestration tax.
-3. Build the dependency graph and choose a ready wave within the worker ceiling.
-4. Write strict packets with acceptance and verification contracts.
-5. Spawn independent workers using native Codex collaboration tools.
-6. Keep doing non-overlapping Sol work; collect only when needed.
-7. Verify evidence and scope, retry once when useful, and reject unsupported output.
-8. Integrate accepted changes, run final repository-level checks, and make the completion decision in Sol.
-9. Report work completed, validation performed, retries/rejections, known risks, and unresolved items.
+Report only verified outcomes:
 
-The optimization target is verified useful output per unit of time, cost, and orchestrator context—not the number of agents. Measure those trade-offs before claiming that LunaMaxing improves a task category.
+~~~yaml
+status: DONE | BLOCKED
+work_completed: []
+validation_performed: []
+accepted_worker_results: []
+rejected_or_retried_packets: []
+known_risks: []
+unresolved_items: []
+~~~
+
+The optimization target is verified useful output per unit of time, cost, and
+orchestrator context—not the number of agents. Use
+references/benchmarks.md before making performance claims and
+references/evals.md when checking behavioral adherence to this policy.
