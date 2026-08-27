@@ -1,5 +1,5 @@
 {
-  "name": "lunamax",
+  "name": "lunamaxing",
   "version": "0.1.0",
   "description": "Verification-first orchestration for bounded parallel Codex work.",
   "author": {
@@ -16,7 +16,7 @@
   ],
   "skills": "./skills/",
   "interface": {
-    "displayName": "LunaMax",
+    "displayName": "LunaMaxing",
     "shortDescription": "Bounded parallel work with Sol verification",
     "longDescription": "Keep strategic reasoning in Sol, delegate bounded execution to Luna workers, and accept results only after evidence-based verification.",
     "developerName": "AndreaScuto",
@@ -27,9 +27,9 @@
     ],
     "websiteURL": "https://github.com/AndreaScuto/LunaMax",
     "defaultPrompt": [
-      "Use LunaMax to decompose this task into bounded parallel work and verify every result.",
-      "Use LunaMax to investigate this repository without changing files.",
-      "Use LunaMax to split this feature into independent implementation and test work."
+      "Use LunaMaxing to decompose this task into bounded parallel work and verify every result.",
+      "Use LunaMaxing to investigate this repository without changing files.",
+      "Use LunaMaxing to split this feature into independent implementation and test work."
     ],
     "brandColor": "#B9D8FF",
     "composerIcon": "./assets/lunamax.png",
