@@ -58,6 +58,9 @@ faster, safer, or clearer.
 - Inspect runtime capabilities before a real wave. Read
   references/runtime-capabilities.md when parallel, background, model override,
   completion, or workspace isolation behavior matters.
+- Read references/configuration.md before mapping these policy defaults to
+  project or runtime configuration. Read references/runtime-notes.md when
+  current Codex lifecycle behavior matters.
 - Distinguish useful parallelism during the active orchestration turn from
   autonomous background continuation. Never promise the latter unless the
   runtime explicitly guarantees it.

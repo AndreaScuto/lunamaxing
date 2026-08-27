@@ -20,6 +20,9 @@ REQUIRED_BODY_MARKERS = (
     "references/runtime-capabilities.md",
     "references/librarian.md",
     "references/benchmarks.md",
+    "references/configuration.md",
+    "references/runtime-notes.md",
+    "references/evals.md",
 )
 
 REQUIRED_REFERENCES = (
@@ -27,6 +30,9 @@ REQUIRED_REFERENCES = (
     "references/runtime-capabilities.md",
     "references/librarian.md",
     "references/benchmarks.md",
+    "references/configuration.md",
+    "references/runtime-notes.md",
+    "references/evals.md",
 )
 
 REQUIRED_AGENT_KEYS = ("display_name:", "short_description:", "default_prompt:")

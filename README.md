@@ -45,6 +45,10 @@ trivial, tightly coupled, ambiguous, and high-risk work with Sol.
   comparison plan and falsifiable success criteria.
 - [evals.md](skills/lunamaxing/references/evals.md) — positive and negative
   behavioral evaluation cases.
+- [configuration.md](skills/lunamaxing/references/configuration.md) — policy
+  defaults and safe runtime mapping.
+- [runtime-notes.md](skills/lunamaxing/references/runtime-notes.md) — dated
+  lifecycle assumptions and primary references.
 
 ## Local checks
 
