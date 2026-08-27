@@ -1,6 +1,6 @@
 # LunaMaxing
 
-![LunaMaxing logo](assets/lunamax.png)
+<img src="assets/lunamax.png" alt="LunaMaxing logo" width="180">
 
 Verification-first manager–worker orchestration for Codex.
 
