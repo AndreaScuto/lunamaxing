@@ -9,9 +9,12 @@ from pathlib import Path
 from typing import Any
 
 TRANSITIONS: dict[str, set[str]] = {
-    "UNDERSTAND": {"CLASSIFY", "BLOCKED"},
+    "UNDERSTAND": {"CONFIGURE", "CLASSIFY", "BLOCKED"},
+    "CONFIGURE": {"DECOMPOSE", "BLOCKED"},
+    "DECOMPOSE": {"PLAN", "BLOCKED"},
     "CLASSIFY": {"PLAN", "BLOCKED"},
-    "PLAN": {"DELEGATE", "FINAL_VALIDATE", "BLOCKED"},
+    "PLAN": {"ROUTE", "DELEGATE", "FINAL_VALIDATE", "BLOCKED"},
+    "ROUTE": {"DELEGATE", "FINAL_VALIDATE", "BLOCKED"},
     "DELEGATE": {"EXECUTE", "FINAL_VALIDATE", "BLOCKED"},
     "EXECUTE": {
         "COLLECT",

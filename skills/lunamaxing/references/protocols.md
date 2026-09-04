@@ -10,7 +10,9 @@ A packet is complete only when it answers these questions:
 
 | Field | Required | Meaning |
 | --- | --- | --- |
-| role | yes | One of designer, researcher, fixer, tester, reviewer, librarian |
+| role | yes | Oracle, Explorer, Librarian, Designer, Fixer, Tester, or Reviewer |
+| model | worker | Resolved model ID passed to the spawn call |
+| reasoning_effort | worker | Resolved effort passed to the spawn call |
 | objective | yes | One observable outcome, not a general project goal |
 | scope | yes | Files, symbols, or read-only search boundary |
 | do_not_touch | yes | Explicit forbidden paths, systems, and cleanup |
@@ -39,6 +41,8 @@ reconstructing the whole project.
 ~~~yaml
 id: auth-refresh-fix
 role: fixer
+model: "gpt-5.6-luna"
+reasoning_effort: "max"
 objective: "Invalidate a refresh token during explicit logout."
 scope:
   - src/auth/token.ts
@@ -64,6 +68,9 @@ stop_conditions:
 output_contract:
   - status
   - summary
+  - model_used
+  - reasoning_effort_used
+  - model_fallback
   - files_changed
   - tests_run
   - evidence
@@ -82,6 +89,9 @@ Workers return concise structured output:
 ~~~yaml
 status: DONE | NEEDS_ORCHESTRATOR_DECISION | BLOCKED
 summary: "One sentence describing the result."
+model_used: "gpt-5.6-luna"
+reasoning_effort_used: "max"
+model_fallback: null
 files_changed:
   - src/auth/token.ts
 tests_run:
@@ -102,6 +112,8 @@ unresolved_risks:
 Rules:
 
 - DONE requires evidence and a scope check; a summary alone is not enough.
+- model_used and reasoning_effort_used report the effective spawn settings;
+  model_fallback explains any difference from the requested packet.
 - NEEDS_ORCHESTRATOR_DECISION means the packet boundary, requirement, or
   dependency is invalid or ambiguous. It is not a request to self-expand.
 - BLOCKED means the worker cannot continue without an external state change,
@@ -160,9 +172,12 @@ Use these states for a packet or wave:
 
 | State | Enter when | Exit to |
 | --- | --- | --- |
-| UNDERSTAND | objective and constraints are being gathered | CLASSIFY |
-| CLASSIFY | local/sequential/delegated choice is made | PLAN |
-| PLAN | graph, ownership, and gates are defined | DELEGATE |
+| UNDERSTAND | objective and constraints are being gathered | CONFIGURE |
+| CONFIGURE | project and invocation model routing is resolved | DECOMPOSE |
+| DECOMPOSE | the high-level goal is split into bounded lanes | PLAN |
+| CLASSIFY | legacy pre-0.3 log classification | PLAN |
+| PLAN | graph, ownership, and gates are defined | ROUTE |
+| ROUTE | every lane has a role, model, and reasoning effort | DELEGATE, FINAL_VALIDATE |
 | DELEGATE | packets are complete and ready | EXECUTE |
 | EXECUTE | workers are running | COLLECT, BLOCKED, NEEDS_ORCHESTRATOR_DECISION |
 | COLLECT | worker output is available | VERIFY |
@@ -232,16 +247,9 @@ python scripts/check_wave.py wave.json --max-workers 5
 python scripts/check_state_log.py state-log.json
 ~~~
 
-A wave file is either a JSON array of packets or an object with a wave array:
-
-~~~json
-{
-  "wave": [
-    {"id": "backend", "role": "fixer", "ownership": "backend/**"},
-    {"id": "frontend", "role": "fixer", "ownership": "frontend/**"}
-  ]
-}
-~~~
+A wave file is either a JSON array of complete packet objects or an object with
+a wave array containing those objects. All packet fields above, including model
+and reasoning_effort, remain required inside a wave.
 
 The wave checker rejects missing packet fields, duplicate IDs, same-wave
 dependencies, worker counts above the ceiling, and overlapping writable
@@ -252,7 +260,7 @@ A state-log file contains a states array and may set max_retries:
 ~~~json
 {
   "max_retries": 1,
-  "states": ["UNDERSTAND", "CLASSIFY", "PLAN", "FINAL_VALIDATE", "DONE"]
+  "states": ["UNDERSTAND", "CONFIGURE", "DECOMPOSE", "PLAN", "ROUTE", "FINAL_VALIDATE", "DONE"]
 }
 ~~~
 
@@ -272,6 +280,11 @@ accepted_worker_results:
   - packet_id: auth-refresh-fix
     evidence: ["src/auth/token.ts:42", "npm test -- auth"]
 rejected_or_retried_packets: []
+model_routing:
+  - role: fixer
+    requested: "gpt-5.6-luna/max"
+    effective: "gpt-5.6-luna/max"
+no_delegation_reason: null
 known_risks: []
 unresolved_items: []
 ~~~

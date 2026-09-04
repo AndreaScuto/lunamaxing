@@ -1,4 +1,4 @@
 interface:
   display_name: "LunaMaxing"
-  short_description: "Parallel bounded work with Sol verification"
-  default_prompt: "Use $lunamaxing to decompose this task into bounded parallel work and verify every result."
+  short_description: "Configurable specialist routing with eager delegation"
+  default_prompt: "Use $lunamaxing to decompose this non-trivial task into specialist lanes, apply project model routing, and verify every result."

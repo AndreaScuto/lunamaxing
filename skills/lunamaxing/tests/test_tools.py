@@ -37,6 +37,8 @@ class PacketValidationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.packet = {
             "role": "fixer",
+            "model": "gpt-5.6-luna",
+            "reasoning_effort": "max",
             "objective": "Fix the parser",
             "scope": ["src/parser.py"],
             "do_not_touch": ["database/**"],
@@ -48,6 +50,9 @@ class PacketValidationTests(unittest.TestCase):
             "output_contract": [
                 "status",
                 "summary",
+                "model_used",
+                "reasoning_effort_used",
+                "model_fallback",
                 "files_changed",
                 "tests_run",
                 "evidence",
@@ -58,6 +63,9 @@ class PacketValidationTests(unittest.TestCase):
         self.result = {
             "status": "DONE",
             "summary": "Parser fixed.",
+            "model_used": "gpt-5.6-luna",
+            "reasoning_effort_used": "max",
+            "model_fallback": None,
             "files_changed": ["src/parser.py"],
             "tests_run": [{"command": "python -m unittest", "result": "pass"}],
             "evidence": [{"kind": "test", "claim": "regression passes"}],
@@ -83,6 +91,38 @@ class PacketValidationTests(unittest.TestCase):
         errors = check_packet.validate_result_against_packet(result, packet)
         self.assertTrue(any("read-only" in error for error in errors))
 
+    def test_oracle_packet_accepts_explicit_model_routing(self) -> None:
+        packet = dict(
+            self.packet,
+            role="oracle",
+            read_only=True,
+            model="gpt-5.6-terra",
+            reasoning_effort="high",
+        )
+        self.assertEqual(check_packet.validate_packet(packet), [])
+
+    def test_invalid_reasoning_effort_is_rejected(self) -> None:
+        packet = dict(self.packet, reasoning_effort="turbo")
+        errors = check_packet.validate_packet(packet)
+        self.assertTrue(any("reasoning_effort" in error for error in errors))
+
+    def test_missing_model_routing_is_rejected(self) -> None:
+        packet = dict(self.packet)
+        packet.pop("model")
+        errors = check_packet.validate_packet(packet)
+        self.assertTrue(any(error == "model" for error in errors))
+
+    def test_result_must_report_effective_model(self) -> None:
+        result = dict(self.result)
+        result.pop("model_used")
+        errors = check_packet.validate_result(result)
+        self.assertIn("model_used", errors)
+
+    def test_output_contract_requires_model_evidence(self) -> None:
+        packet = dict(self.packet, output_contract=["status", "summary"])
+        errors = check_packet.validate_packet(packet)
+        self.assertTrue(any("output_contract missing" in error for error in errors))
+
 
 class BenchmarkTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -101,6 +141,12 @@ class BenchmarkTests(unittest.TestCase):
             "write_conflicts": 0,
             "worker_outputs_rejected": 0,
             "verified_useful": True,
+            "delegation_mode": "eager",
+            "delegation_candidates": 2,
+            "delegated_packets": 2,
+            "worker_count": 2,
+            "orchestrator_model": "gpt-5.6-sol",
+            "role_models": {"fixer": "gpt-5.6-luna"},
         }
 
     def test_valid_dataset_and_summary(self) -> None:
@@ -109,11 +155,21 @@ class BenchmarkTests(unittest.TestCase):
         summary = benchmark.summarize_group(dataset["runs"])
         self.assertEqual(summary["count"], 1)
         self.assertEqual(summary["tests_passed_rate"], 1.0)
+        self.assertEqual(summary["delegation_rate"], 1.0)
 
     def test_negative_measurement_is_rejected(self) -> None:
         dataset = {"runs": [dict(self.run, duration_s=-1)]}
         errors = benchmark.validate_dataset(dataset)
         self.assertTrue(any("duration_s" in error for error in errors))
+
+    def test_delegated_packets_cannot_exceed_candidates(self) -> None:
+        dataset = {
+            "runs": [
+                dict(self.run, delegation_candidates=1, delegated_packets=2)
+            ]
+        }
+        errors = benchmark.validate_dataset(dataset)
+        self.assertTrue(any("delegated_packets" in error for error in errors))
 
 
 class WaveValidationTests(unittest.TestCase):
@@ -121,6 +177,8 @@ class WaveValidationTests(unittest.TestCase):
         return {
             "id": packet_id,
             "role": "fixer",
+            "model": "gpt-5.6-luna",
+            "reasoning_effort": "max",
             "objective": "Make a bounded change",
             "scope": [ownership],
             "do_not_touch": [],
@@ -129,7 +187,18 @@ class WaveValidationTests(unittest.TestCase):
             "validation": ["python -m unittest"],
             "ownership": ownership,
             "dependencies": [] if dependency is None else [dependency],
-            "output_contract": ["status", "summary", "files_changed"],
+            "output_contract": [
+                "status",
+                "summary",
+                "model_used",
+                "reasoning_effort_used",
+                "model_fallback",
+                "files_changed",
+                "tests_run",
+                "evidence",
+                "assumptions",
+                "unresolved_risks",
+            ],
         }
 
     def test_disjoint_wave_passes(self) -> None:
@@ -151,8 +220,10 @@ class StateLogTests(unittest.TestCase):
     def test_valid_done_path(self) -> None:
         states = [
             "UNDERSTAND",
-            "CLASSIFY",
+            "CONFIGURE",
+            "DECOMPOSE",
             "PLAN",
+            "ROUTE",
             "DELEGATE",
             "EXECUTE",
             "COLLECT",

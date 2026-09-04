@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/AndreaScuto/lunamaxing/main/skills/lunamaxing/assets/lunamaxing.schema.json",
+  "title": "LunaMaxing configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "orchestrator": {
+      "$ref": "#/$defs/modelConfig"
+    },
+    "agents": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "oracle": {
+          "$ref": "#/$defs/modelConfig"
+        },
+        "explorer": {
+          "$ref": "#/$defs/modelConfig"
+        },
+        "librarian": {
+          "$ref": "#/$defs/modelConfig"
+        },
+        "designer": {
+          "$ref": "#/$defs/modelConfig"
+        },
+        "fixer": {
+          "$ref": "#/$defs/modelConfig"
+        },
+        "tester": {
+          "$ref": "#/$defs/modelConfig"
+        },
+        "reviewer": {
+          "$ref": "#/$defs/modelConfig"
+        }
+      }
+    },
+    "delegation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "conservative",
+            "balanced",
+            "eager"
+          ]
+        },
+        "max_workers": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "min_workers_nontrivial": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "target_workers_complex": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5
+        },
+        "max_retries_per_packet": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "decompose_before_local": {
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "modelConfig": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reasoning_effort": {
+          "enum": [
+            "inherit",
+            "none",
+            "minimal",
+            "low",
+            "medium",
+            "high",
+            "xhigh",
+            "max",
+            "ultra"
+          ]
+        }
+      }
+    }
+  }
+}
+

@@ -25,6 +25,12 @@ REQUIRED_FIELDS = (
     "write_conflicts",
     "worker_outputs_rejected",
     "verified_useful",
+    "delegation_mode",
+    "delegation_candidates",
+    "delegated_packets",
+    "worker_count",
+    "orchestrator_model",
+    "role_models",
 )
 NUMERIC_FIELDS = (
     "duration_s",
@@ -36,6 +42,9 @@ NUMERIC_FIELDS = (
     "retries",
     "write_conflicts",
     "worker_outputs_rejected",
+    "delegation_candidates",
+    "delegated_packets",
+    "worker_count",
 )
 INTEGER_FIELDS = (
     "tool_calls",
@@ -44,6 +53,9 @@ INTEGER_FIELDS = (
     "retries",
     "write_conflicts",
     "worker_outputs_rejected",
+    "delegation_candidates",
+    "delegated_packets",
+    "worker_count",
 )
 BOOLEAN_FIELDS = ("tests_passed", "verified_useful")
 
@@ -139,6 +151,35 @@ def validate_run(index: int, run: dict[str, Any]) -> list[str]:
         value = run.get(field)
         if not isinstance(value, bool):
             errors.append(f"runs[{index}].{field} must be boolean")
+    mode = run.get("delegation_mode")
+    if mode not in {"conservative", "balanced", "eager"}:
+        errors.append(
+            f"runs[{index}].delegation_mode must be conservative, balanced, or eager"
+        )
+    orchestrator = run.get("orchestrator_model")
+    if not isinstance(orchestrator, str) or not orchestrator.strip():
+        errors.append(f"runs[{index}].orchestrator_model must be non-empty")
+    role_models = run.get("role_models")
+    if not isinstance(role_models, dict) or not all(
+        isinstance(role, str)
+        and role.strip()
+        and isinstance(model, str)
+        and model.strip()
+        for role, model in role_models.items()
+    ):
+        errors.append(f"runs[{index}].role_models must map roles to model strings")
+    candidates = run.get("delegation_candidates")
+    delegated = run.get("delegated_packets")
+    if (
+        isinstance(candidates, int)
+        and not isinstance(candidates, bool)
+        and isinstance(delegated, int)
+        and not isinstance(delegated, bool)
+        and delegated > candidates
+    ):
+        errors.append(
+            f"runs[{index}].delegated_packets cannot exceed delegation_candidates"
+        )
     return errors
 
 
@@ -220,6 +261,21 @@ def summarize_group(runs: list[dict[str, Any]]) -> dict[str, Any]:
             round(sum(values) / len(values), 3) if values else None
         )
         summary[f"n_{field}"] = len(values)
+    candidates = sum(
+        run["delegation_candidates"]
+        for run in runs
+        if isinstance(run.get("delegation_candidates"), int)
+        and not isinstance(run["delegation_candidates"], bool)
+    )
+    delegated = sum(
+        run["delegated_packets"]
+        for run in runs
+        if isinstance(run.get("delegated_packets"), int)
+        and not isinstance(run["delegated_packets"], bool)
+    )
+    summary["delegation_rate"] = (
+        round(delegated / candidates, 3) if candidates else None
+    )
     return summary
 
 
@@ -258,6 +314,9 @@ def compare_groups(
         "conflict_delta": difference(
             current["mean_write_conflicts"], base["mean_write_conflicts"]
         ),
+        "delegation_rate_delta": difference(
+            current["delegation_rate"], base["delegation_rate"]
+        ),
     }
 
 
@@ -282,13 +341,14 @@ def difference(candidate: float | None, baseline: float | None) -> float | None:
 def print_summary(
     summaries: dict[str, dict[str, Any]], comparison: dict[str, Any] | None
 ) -> None:
-    print("strategy | n | duration_s | context_tokens | tests_passed | useful")
-    print("--- | ---: | ---: | ---: | ---: | ---:")
+    print("strategy | n | duration_s | context_tokens | delegated | tests_passed | useful")
+    print("--- | ---: | ---: | ---: | ---: | ---: | ---:")
     for strategy, summary in summaries.items():
         print(
             f"{strategy} | {summary['count']} | "
             f"{display(summary['mean_duration_s'])} | "
             f"{display(summary['mean_orchestrator_context_tokens'])} | "
+            f"{display(summary['delegation_rate'])} | "
             f"{display(summary['tests_passed_rate'])} | "
             f"{display(summary['verified_useful_rate'])}"
         )

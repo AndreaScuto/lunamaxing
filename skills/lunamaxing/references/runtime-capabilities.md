@@ -40,18 +40,23 @@ The preferred strategy is always bounded parallelism, not maximum parallelism.
 
 ## Model and reasoning selection
 
-Use capability-aware preferences:
+Resolve .lunamaxing.json before spawning and pass each role's model and
+reasoning_effort explicitly. The packaged default sends Oracle to Terra/high
+and the remaining specialist lanes to Luna/max. Project and invocation
+overrides may choose any model accepted by the current host.
 
-- Sol: strongest available model at high or xhigh reasoning when global
-  architecture, ambiguity, integration, or verification dominates.
-- Luna: strongest available worker model at maximum reasoning when the packet is
-  narrow and independently verifiable.
-- If the runtime exposes no named Sol/Luna models, preserve the role split in
-  the packet and use the available model without inventing a setting.
-- Do not encode a made-up TOML key, CLI flag, or model identifier in a skill
-  instruction. Map configuration only to keys documented by the current runtime.
-- A model override is a preference, not an authority transfer: Sol still owns
-  acceptance.
+Codex supports agents.default_subagent_model and
+agents.default_subagent_reasoning_effort as global fallbacks, while explicit
+spawn values take precedence. Custom Codex agent files may also define model
+and model_reasoning_effort. Do not invent other runtime keys.
+
+The orchestrator is the already-running parent session; the skill cannot switch
+its model mid-turn. A configured concrete orchestrator model is therefore a
+launch requirement, while inherit accepts the current session.
+
+If a configured model or reasoning effort is unavailable, use the closest
+available setting, record the fallback, and preserve the role. A model override
+never transfers final authority away from Sol.
 
 ## Background versus active parallelism
 

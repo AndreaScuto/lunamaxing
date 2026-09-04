@@ -1,7 +1,7 @@
 {
   "name": "lunamaxing",
-  "version": "0.2.0",
-  "description": "Verification-first orchestration for bounded parallel Codex work.",
+  "version": "0.3.0",
+  "description": "Eager task decomposition and configurable specialist model routing for Codex.",
   "author": {
     "name": "AndreaScuto",
     "url": "https://github.com/AndreaScuto"
@@ -12,13 +12,15 @@
     "codex",
     "orchestration",
     "multi-agent",
-    "verification"
+    "verification",
+    "model-routing",
+    "task-decomposition"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "LunaMaxing",
-    "shortDescription": "Bounded parallel work with Sol verification",
-    "longDescription": "Keep strategic reasoning in Sol, delegate bounded execution to Luna workers, and accept results only after evidence-based verification.",
+    "shortDescription": "Configurable specialist routing with eager delegation",
+    "longDescription": "Decompose non-trivial goals into bounded specialist lanes, route each role to a configurable model, and accept results only after orchestrator verification.",
     "developerName": "AndreaScuto",
     "category": "Productivity",
     "capabilities": [
@@ -27,9 +29,9 @@
     ],
     "websiteURL": "https://github.com/AndreaScuto/lunamaxing",
     "defaultPrompt": [
-      "Use LunaMaxing to decompose this task into bounded parallel work and verify every result.",
-      "Use LunaMaxing to investigate this repository without changing files.",
-      "Use LunaMaxing to split this feature into independent implementation and test work."
+      "Use LunaMaxing to decompose this task into specialist lanes and apply project model routing.",
+      "Use LunaMaxing with Oracle on Terra and the other specialists on Luna.",
+      "Use LunaMaxing to split this feature into discovery, implementation, testing, and review waves."
     ],
     "brandColor": "#B9D8FF",
     "composerIcon": "./assets/lunamax.png",

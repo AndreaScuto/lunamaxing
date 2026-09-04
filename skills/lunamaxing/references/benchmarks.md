@@ -64,6 +64,16 @@ Store one JSON object per task/strategy in a file with a top-level runs array:
   "write_conflicts": 0,
   "worker_outputs_rejected": 1,
   "verified_useful": true,
+  "delegation_mode": "eager",
+  "delegation_candidates": 3,
+  "delegated_packets": 3,
+  "worker_count": 3,
+  "orchestrator_model": "gpt-5.6-sol",
+  "role_models": {
+    "oracle": "gpt-5.6-terra",
+    "fixer": "gpt-5.6-luna",
+    "tester": "gpt-5.6-luna"
+  },
   "notes": "Two independent packets; one retry after scope correction."
 }
 ~~~
@@ -75,6 +85,8 @@ Required fields:
 - tests_passed and verified_useful as booleans;
 - regressions, human_review_defects, retries, write_conflicts, and
   worker_outputs_rejected as non-negative integers.
+- delegation_mode, delegation_candidates, delegated_packets, worker_count,
+  orchestrator_model, and the effective role_models mapping.
 
 Unknown measurements must be null in an extension field and excluded from
 averages; do not use zero to hide missing telemetry.
@@ -93,6 +105,8 @@ Report by strategy and by task category:
 - retry count;
 - write/merge conflicts;
 - worker outputs rejected by Sol;
+- delegation candidates, delegated packets, worker count, and delegation rate;
+- requested/effective orchestrator and specialist model routing;
 - verified-useful completion rate.
 
 Useful derived values:
@@ -101,6 +115,7 @@ Useful derived values:
 parallel speedup = sol_baseline_duration / lunamaxing_duration
 quality delta = lunamaxing_test_pass_rate - sol_baseline_test_pass_rate
 context reduction = 1 - lunamaxing_context / sol_baseline_context
+delegation rate = delegated_packets / delegation_candidates
 ~~~
 
 Do not calculate a metric when its denominator is missing or zero. Report the

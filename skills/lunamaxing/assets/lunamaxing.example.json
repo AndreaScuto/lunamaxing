@@ -1,0 +1,46 @@
+{
+  "$schema": "https://raw.githubusercontent.com/AndreaScuto/lunamaxing/main/skills/lunamaxing/assets/lunamaxing.schema.json",
+  "orchestrator": {
+    "model": "inherit",
+    "reasoning_effort": "inherit"
+  },
+  "agents": {
+    "oracle": {
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "high"
+    },
+    "explorer": {
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "max"
+    },
+    "librarian": {
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "max"
+    },
+    "designer": {
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "max"
+    },
+    "fixer": {
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "max"
+    },
+    "tester": {
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "max"
+    },
+    "reviewer": {
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "max"
+    }
+  },
+  "delegation": {
+    "mode": "eager",
+    "max_workers": 5,
+    "min_workers_nontrivial": 1,
+    "target_workers_complex": 3,
+    "max_retries_per_packet": 1,
+    "decompose_before_local": true
+  }
+}
+

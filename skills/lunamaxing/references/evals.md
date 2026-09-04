@@ -9,7 +9,7 @@ small disposable repository or read-only fixture.
 1. **Independent documentation research**
    - Prompt: "Verify the current API behavior for the library used by this
      repository and cite official sources."
-   - Expected: Researcher packet, source labels, no code edits, direct citations.
+   - Expected: Librarian packet, source labels, no code edits, direct citations.
    - Fixture: repository manifest and a question with an official documentation
      page.
 
@@ -30,7 +30,7 @@ small disposable repository or read-only fixture.
 4. **Repository navigation**
    - Prompt: "Find where session invalidation is implemented, all callers, and
      the tests that cover it."
-   - Expected: read-only Librarian output with symbols, callers, tests,
+   - Expected: read-only Explorer output with symbols, callers, tests,
      likely_change_surface, confidence, and unresolved dynamic edges.
    - Fixture: repository with a symbol index or GitNexus plus a generated path.
 
@@ -41,6 +41,28 @@ small disposable repository or read-only fixture.
      completion decision.
    - Fixture: patch containing at least one real and one non-issue finding.
 
+6. **High-level feature decomposition**
+   - Prompt: "Add account deletion across API, UI, persistence, tests, and
+     documentation."
+   - Expected: a work graph before implementation; Explorer/Librarian as needed,
+     disjoint Designer/Fixer lanes, Tester and Reviewer gates, ordered waves.
+   - Failure: Sol keeps the whole feature because the top-level request appears
+     coupled instead of decomposing it into bounded deliverables.
+
+7. **Per-role model routing**
+   - Config: Oracle uses gpt-5.6-terra/high; all other specialists use
+     gpt-5.6-luna/max.
+   - Expected: every packet records the resolved model and reasoning_effort and
+     every spawn attempts those explicit overrides.
+   - Failure: workers inherit the parent silently or every role uses one global
+     model despite valid project configuration.
+
+8. **Coupled implementation with delegatable support lanes**
+   - Prompt: "Refactor a tightly coupled parser and preserve behavior."
+   - Expected: Sol may retain the coupled integration, but delegates at least an
+     Explorer, Tester, Reviewer, or Oracle lane when one can be bounded safely.
+   - Failure: no decomposition pass and no explicit no-delegation reason.
+
 ## Negative cases
 
 1. **Trivial change**
@@ -50,8 +72,8 @@ small disposable repository or read-only fixture.
 2. **Ambiguous architecture**
    - Prompt: "Redesign the whole authentication system; decide the best
      architecture while several modules are failing."
-   - Expected: Sol keeps global judgment or delegates only a narrow investigation;
-     no speculative multi-writer wave.
+   - Expected: Sol keeps the decision, may delegate a bounded read-only Oracle
+     or Explorer investigation, and avoids a speculative multi-writer wave.
 
 3. **Unsafe scope expansion**
    - Scenario: a Fixer discovers that the packet requires a database schema

@@ -14,9 +14,14 @@ TODO_MARKER = "[TODO" + ":"
 REQUIRED_BODY_MARKERS = (
     "Sol",
     "Luna",
-    "max_workers = 5",
+    "## Mandatory decomposition pass",
+    ".lunamaxing.json",
+    "max_workers",
     "NEEDS_ORCHESTRATOR_DECISION",
+    "**Oracle**",
+    "**Explorer**",
     "references/protocols.md",
+    "references/decomposition.md",
     "references/runtime-capabilities.md",
     "references/librarian.md",
     "references/benchmarks.md",
@@ -27,6 +32,7 @@ REQUIRED_BODY_MARKERS = (
 
 REQUIRED_REFERENCES = (
     "references/protocols.md",
+    "references/decomposition.md",
     "references/runtime-capabilities.md",
     "references/librarian.md",
     "references/benchmarks.md",
@@ -36,6 +42,11 @@ REQUIRED_REFERENCES = (
 )
 
 REQUIRED_AGENT_KEYS = ("display_name:", "short_description:", "default_prompt:")
+REQUIRED_RESOURCES = (
+    "assets/lunamaxing.example.json",
+    "assets/lunamaxing.schema.json",
+    "scripts/configure.py",
+)
 SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:[-+][0-9A-Za-z.-]+)?$")
 
 
@@ -107,6 +118,15 @@ def validate_skill(skill_root: Path) -> list[str]:
     for relative in REQUIRED_REFERENCES:
         if not (skill_root / relative).is_file():
             errors.append(f"missing reference: {relative}")
+    for relative in REQUIRED_RESOURCES:
+        resource = skill_root / relative
+        if not resource.is_file():
+            errors.append(f"missing resource: {relative}")
+        elif resource.suffix == ".json":
+            try:
+                json.loads(resource.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                errors.append(f"invalid JSON resource {relative}: {exc}")
 
     agent_path = skill_root / "agents" / "openai.yaml"
     if not agent_path.is_file():

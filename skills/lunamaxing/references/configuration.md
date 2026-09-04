@@ -1,74 +1,155 @@
-# LunaMaxing configuration philosophy
+# LunaMaxing model routing
 
-This file describes policy defaults, not a guaranteed Codex configuration schema.
-Translate them only to keys and flags documented by the runtime in use.
+LunaMaxing uses a project-local .lunamaxing.json file to choose the
+orchestrator requirement, each specialist model, reasoning effort, and
+delegation pressure. The file configures LunaMaxing's decisions; Codex still
+enforces which models and reasoning levels are actually available.
 
-## Conceptual defaults
+## Create and inspect configuration
+
+From the skill directory:
+
+~~~text
+python scripts/configure.py init <project-root>/.lunamaxing.json
+python scripts/configure.py validate <project-root>/.lunamaxing.json
+python scripts/configure.py resolve <project-root>/.lunamaxing.json
+python scripts/configure.py spawn oracle <project-root>/.lunamaxing.json
+~~~
+
+The initializer refuses to overwrite an existing file. The example is validated
+by assets/lunamaxing.schema.json and starts with a Luna-heavy mapping:
+
+| Lane | Default model | Reasoning |
+| --- | --- | --- |
+| orchestrator | inherit current session | inherit |
+| oracle | gpt-5.6-terra | high |
+| explorer | gpt-5.6-luna | max |
+| librarian | gpt-5.6-luna | max |
+| designer | gpt-5.6-luna | max |
+| fixer | gpt-5.6-luna | max |
+| tester | gpt-5.6-luna | max |
+| reviewer | gpt-5.6-luna | max |
+
+Model strings are deliberately open: replace them with any model ID the current
+Codex host accepts.
+
+## Configuration shape
+
+~~~json
+{
+  "orchestrator": {
+    "model": "inherit",
+    "reasoning_effort": "inherit"
+  },
+  "agents": {
+    "oracle": {
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "high"
+    },
+    "fixer": {
+      "model": "gpt-5.6-luna",
+      "reasoning_effort": "max"
+    }
+  },
+  "delegation": {
+    "mode": "eager",
+    "max_workers": 5,
+    "min_workers_nontrivial": 1,
+    "target_workers_complex": 3,
+    "max_retries_per_packet": 1,
+    "decompose_before_local": true
+  }
+}
+~~~
+
+Unspecified values inherit the packaged defaults. Unknown fields and unknown
+agent names are rejected so a typo cannot silently change routing.
+
+## Invocation overrides
+
+An explicit invocation override has highest LunaMaxing precedence:
+
+~~~text
+$lunamaxing agents.oracle.model=gpt-5.6-terra agents.oracle.reasoning_effort=xhigh
+$lunamaxing agents.fixer.model=gpt-5.6-luna delegation.max_workers=3
+~~~
+
+The helper accepts the same path=value syntax:
+
+~~~text
+python scripts/configure.py resolve .lunamaxing.json \
+  --set agents.oracle.model=gpt-5.6-terra \
+  --set agents.fixer.reasoning_effort=high
+~~~
+
+Resolution order is:
+
+1. packaged defaults;
+2. project .lunamaxing.json;
+3. explicit invocation or --set overrides.
+
+After resolution, Sol copies each role's model and reasoning_effort into the
+worker packet and passes them explicitly to the spawn call. Explicit spawn
+values take precedence over Codex global subagent defaults.
+
+## Orchestrator model
+
+A skill cannot replace the model of the parent session after that session has
+started. Use one of these choices:
+
+- keep orchestrator.model and reasoning_effort as inherit;
+- select the desired model/reasoning in Codex before invoking LunaMaxing;
+- set a concrete orchestrator requirement in .lunamaxing.json so Sol can
+  detect and disclose a mismatch when its current model is observable.
+
+For persistent Codex defaults, configure the main session separately:
 
 ~~~toml
-[lunamaxing]
-orchestrator_model = "strongest-available"
-orchestrator_reasoning = "high"
-worker_model = "strongest-available-worker"
-worker_reasoning = "max"
-max_workers = 5
-max_retries_per_packet = 1
-parallel_by_default = true
-recursive_delegation = false
-verification_required = true
+model = "gpt-5.6-sol"
+model_reasoning_effort = "xhigh"
 ~~~
 
-The names above are policy concepts. Do not paste them into a runtime config
-unless that runtime documents the exact section and key names.
+## Native Codex subagent defaults
 
-## Precedence
+Codex also supports global subagent defaults:
 
-Apply settings in this order:
-
-1. runtime-enforced limits and safety/approval controls;
-2. explicit user constraints for the current task;
-3. project or workspace configuration;
-4. LunaMaxing defaults;
-5. Sol's task-specific decision.
-
-A lower layer must never override a higher layer's safety boundary. A user
-request to keep work local or sequential wins over parallel_by_default.
-
-## Task-level overrides
-
-Sol may lower the worker ceiling, retry budget, or tool scope for a task:
-
-~~~yaml
-task_overrides:
-  max_workers: 2
-  max_retries_per_packet: 0
-  require_read_only_review: true
+~~~toml
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 5
+default_subagent_model = "gpt-5.6-luna"
+default_subagent_reasoning_effort = "max"
 ~~~
 
-Sol should not increase a runtime ceiling, bypass an approval boundary, or claim
-that a child model/reasoning override succeeded when the runtime rejected it.
+These defaults are useful for unconfigured children. LunaMaxing still sends
+explicit per-role overrides, so Oracle can use Terra while the remaining lanes
+use Luna.
 
-## Cost-aware fan-out
+Codex also supports project custom agents under .codex/agents/*.toml, with
+model and model_reasoning_effort in each agent file. LunaMaxing does not
+generate those files because explicit spawn overrides already provide per-run
+routing without changing the user's Codex configuration.
 
-Reduce fan-out when the packet is cheap, validation is expensive, workers need
-coordination, or maximum reasoning would exceed the available budget. Prefer a
-single high-quality worker over several redundant workers. Record retries and
-rejected outputs in the final report so benchmark data includes orchestration
-cost.
+## Delegation modes
 
-## Capability mapping
+- eager: decompose every non-trivial request and use at least
+  min_workers_nontrivial whenever a safe packet and runtime are available.
+- balanced: delegate multi-step, specialist, or parallel work; allow Sol to
+  retain small bounded implementation.
+- conservative: delegate only when specialization or parallelism materially
+  changes quality or time.
 
-Before changing configuration, map each desired setting to a verified runtime
-capability:
+All modes preserve dependency order, write ownership, verification, and the
+configured max_workers ceiling.
 
-| Policy need | Required evidence |
-| --- | --- |
-| max_workers | documented concurrency limit or successful bounded spawn |
-| worker model/reasoning | accepted per-child override or runtime configuration |
-| parallel_by_default | nonblocking spawn and safe collection behavior |
-| isolated writes | distinct worktree/checkout confirmed for each worker |
-| completion notification | documented callback/wake-up or observed event |
-| verification_required | Sol procedure and repository checks, not a config flag alone |
+## Compatibility and fallback
 
-If the mapping is unknown, leave the setting at the safer default and state the
-uncertainty.
+A configured reasoning level may not be supported by its selected model. When
+the spawn tool rejects a combination, use that model's nearest available
+reasoning level or the runtime default and record the fallback. Never claim that
+a requested override was applied unless the spawn call accepted it.
+
+Primary references:
+
+- [Codex subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)
+- [Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)

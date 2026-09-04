@@ -10,10 +10,32 @@ import sys
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-ROLES = {"designer", "researcher", "fixer", "tester", "reviewer", "librarian"}
+ROLES = {
+    "designer",
+    "explorer",
+    "fixer",
+    "librarian",
+    "oracle",
+    "researcher",
+    "reviewer",
+    "tester",
+}
+REASONING_EFFORTS = {
+    "inherit",
+    "none",
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max",
+    "ultra",
+}
 STATUSES = {"DONE", "NEEDS_ORCHESTRATOR_DECISION", "BLOCKED"}
 PACKET_FIELDS = (
     "role",
+    "model",
+    "reasoning_effort",
     "objective",
     "scope",
     "do_not_touch",
@@ -26,6 +48,9 @@ PACKET_FIELDS = (
 RESULT_FIELDS = (
     "status",
     "summary",
+    "model_used",
+    "reasoning_effort_used",
+    "model_fallback",
     "files_changed",
     "tests_run",
     "evidence",
@@ -119,6 +144,10 @@ def validate_packet(packet: dict[str, Any]) -> list[str]:
         errors.append("acceptance_criteria must contain at least one criterion")
     if not packet.get("output_contract"):
         errors.append("output_contract must contain at least one field")
+    elif isinstance(packet.get("output_contract"), list):
+        for field in RESULT_FIELDS:
+            if field not in packet["output_contract"]:
+                errors.append(f"output_contract missing required field: {field}")
 
     read_only = packet.get("read_only", False)
     if not isinstance(read_only, bool):
@@ -127,6 +156,15 @@ def validate_packet(packet: dict[str, Any]) -> list[str]:
         errors.append("write-capable packets require an ownership string")
     if isinstance(packet.get("ownership"), str) and not packet["ownership"].strip():
         errors.append("ownership must be non-empty when provided")
+    model = packet.get("model")
+    if model is not None and (not isinstance(model, str) or not model.strip()):
+        errors.append("model must be a non-empty string when provided")
+    effort = packet.get("reasoning_effort")
+    if effort is not None and effort not in REASONING_EFFORTS:
+        errors.append(
+            "reasoning_effort must be one of: "
+            + ", ".join(sorted(REASONING_EFFORTS))
+        )
     return errors
 
 
@@ -136,6 +174,16 @@ def validate_result(result: dict[str, Any]) -> list[str]:
         errors.append(f"status must be one of: {', '.join(sorted(STATUSES))}")
     if not isinstance(result.get("summary"), str) or not result["summary"].strip():
         errors.append("summary must be a non-empty string")
+    if not isinstance(result.get("model_used"), str) or not result["model_used"].strip():
+        errors.append("model_used must be a non-empty string")
+    if result.get("reasoning_effort_used") not in REASONING_EFFORTS:
+        errors.append(
+            "reasoning_effort_used must be one of: "
+            + ", ".join(sorted(REASONING_EFFORTS))
+        )
+    fallback = result.get("model_fallback")
+    if fallback is not None and (not isinstance(fallback, str) or not fallback.strip()):
+        errors.append("model_fallback must be null or a non-empty string")
     if not isinstance(result.get("files_changed"), list) or not all(
         isinstance(item, str) and item.strip() for item in result["files_changed"]
     ):
