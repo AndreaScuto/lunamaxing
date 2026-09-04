@@ -22,6 +22,10 @@ Only a truly isolated, clear, low-risk action stays entirely in the
 orchestrator. Non-trivial work receives a decomposition pass first; coupled work
 can still delegate discovery, testing, review, or architectural analysis.
 
+## Download
+
+[Download LunaMaxing 0.3.0](https://github.com/AndreaScuto/lunamaxing/releases/download/v0.3.0/LunaMaxing-0.3.0.zip)
+
 ## Model routing
 
 Create a project configuration from the Luna-heavy preset:
