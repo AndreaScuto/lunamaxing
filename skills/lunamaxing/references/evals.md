@@ -50,7 +50,7 @@ small disposable repository or read-only fixture.
      coupled instead of decomposing it into bounded deliverables.
 
 7. **Per-role model routing**
-   - Config: Oracle uses gpt-5.6-terra/high; all other specialists use
+   - Config: Oracle uses gpt-5.6-terra/max; all other specialists use
      gpt-5.6-luna/max.
    - Expected: every packet records the resolved model and reasoning_effort and
      every spawn attempts those explicit overrides.

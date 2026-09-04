@@ -29,6 +29,7 @@ class ModelRoutingTests(unittest.TestCase):
         resolved = self.configure.resolve_config({})
         self.assertEqual(resolved["orchestrator"]["model"], "inherit")
         self.assertEqual(resolved["agents"]["oracle"]["model"], "gpt-5.6-terra")
+        self.assertEqual(resolved["agents"]["oracle"]["reasoning_effort"], "max")
         for role in ("explorer", "librarian", "designer", "fixer", "tester", "reviewer"):
             self.assertEqual(resolved["agents"][role]["model"], "gpt-5.6-luna")
             self.assertEqual(resolved["agents"][role]["reasoning_effort"], "max")
@@ -87,7 +88,7 @@ class ModelRoutingTests(unittest.TestCase):
         resolved = self.configure.resolve_config({})
         self.assertEqual(
             self.configure.spawn_settings(resolved, "oracle"),
-            {"model": "gpt-5.6-terra", "reasoning_effort": "high"},
+            {"model": "gpt-5.6-terra", "reasoning_effort": "max"},
         )
 
     def test_legacy_researcher_routes_to_librarian(self) -> None:

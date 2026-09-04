@@ -1,6 +1,6 @@
 {
   "name": "lunamaxing",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Eager task decomposition and configurable specialist model routing for Codex.",
   "author": {
     "name": "AndreaScuto",

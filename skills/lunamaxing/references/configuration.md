@@ -22,7 +22,7 @@ by assets/lunamaxing.schema.json and starts with a Luna-heavy mapping:
 | Lane | Default model | Reasoning |
 | --- | --- | --- |
 | orchestrator | inherit current session | inherit |
-| oracle | gpt-5.6-terra | high |
+| oracle | gpt-5.6-terra | max |
 | explorer | gpt-5.6-luna | max |
 | librarian | gpt-5.6-luna | max |
 | designer | gpt-5.6-luna | max |
@@ -44,7 +44,7 @@ Codex host accepts.
   "agents": {
     "oracle": {
       "model": "gpt-5.6-terra",
-      "reasoning_effort": "high"
+      "reasoning_effort": "max"
     },
     "fixer": {
       "model": "gpt-5.6-luna",

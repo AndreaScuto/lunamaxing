@@ -102,7 +102,7 @@ configuration. Read references/configuration.md for the complete contract.
 The packaged luna-heavy defaults are:
 
 - orchestrator: inherit the already-running session model and reasoning;
-- Oracle: gpt-5.6-terra at high reasoning;
+- Oracle: gpt-5.6-terra at max reasoning;
 - Explorer, Librarian, Designer, Fixer, Tester, and Reviewer: gpt-5.6-luna at
   max reasoning;
 - delegation: eager, minimum one worker for non-trivial work, target three for

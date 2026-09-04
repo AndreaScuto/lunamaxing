@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1 — 2026-09-04
+
+- Changed the default Oracle routing to gpt-5.6-terra with max reasoning.
+
 ## 0.3.0 — 2026-09-04
 
 - Added project-local .lunamaxing.json model and reasoning configuration.
@@ -10,4 +14,3 @@
 - Added eager delegation thresholds and explicit no-delegation reasons.
 - Added model-routing evidence to worker packets, results, and final reports.
 - Added delegation-rate and effective-model fields to benchmark records.
-

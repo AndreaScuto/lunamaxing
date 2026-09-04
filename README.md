@@ -24,7 +24,7 @@ can still delegate discovery, testing, review, or architectural analysis.
 
 ## Download
 
-[Download LunaMaxing 0.3.0](https://github.com/AndreaScuto/lunamaxing/releases/download/v0.3.0/LunaMaxing-0.3.0.zip)
+[Download LunaMaxing 0.3.1](https://github.com/AndreaScuto/lunamaxing/releases/download/v0.3.1/LunaMaxing-0.3.1.zip)
 
 ## Model routing
 
@@ -35,7 +35,7 @@ python skills/lunamaxing/scripts/configure.py init <project-root>/.lunamaxing.js
 python skills/lunamaxing/scripts/configure.py resolve <project-root>/.lunamaxing.json
 ~~~
 
-The default sends Oracle to `gpt-5.6-terra` with high reasoning and Explorer,
+The default sends Oracle to `gpt-5.6-terra` with max reasoning and Explorer,
 Librarian, Designer, Fixer, Tester, and Reviewer to `gpt-5.6-luna` with max
 reasoning. Edit `.lunamaxing.json` or override a value at invocation:
 

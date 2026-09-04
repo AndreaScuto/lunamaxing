@@ -41,7 +41,7 @@ The preferred strategy is always bounded parallelism, not maximum parallelism.
 ## Model and reasoning selection
 
 Resolve .lunamaxing.json before spawning and pass each role's model and
-reasoning_effort explicitly. The packaged default sends Oracle to Terra/high
+reasoning_effort explicitly. The packaged default sends Oracle to Terra/max
 and the remaining specialist lanes to Luna/max. Project and invocation
 overrides may choose any model accepted by the current host.
 
