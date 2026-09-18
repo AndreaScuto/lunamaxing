@@ -112,7 +112,8 @@ unresolved_risks:
 Rules:
 
 - DONE requires evidence and a scope check; a summary alone is not enough.
-- model_used and reasoning_effort_used report the effective spawn settings;
+- model_used and reasoning_effort_used are accepted only when corroborated by
+  the spawn call or runtime metadata; a worker cannot attest its own model.
   model_fallback explains any difference from the requested packet.
 - NEEDS_ORCHESTRATOR_DECISION means the packet boundary, requirement, or
   dependency is invalid or ambiguous. It is not a request to self-expand.
@@ -165,6 +166,12 @@ verification_contract:
 Sol must inspect the actual working tree, not only the worker's reported
 files. If the worker edited outside scope, reject or repair in Sol before
 integration.
+
+Sol must also compare the runtime model with the resolved route. A task named
+with a different role, an omitted concrete override, or runtime metadata that
+disagrees with the packet is a failed route. Reject that result and use the
+single configured retry; do not repair the mismatch by changing the label in
+the report.
 
 ## State transitions
 

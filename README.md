@@ -24,7 +24,7 @@ can still delegate discovery, testing, review, or architectural analysis.
 
 ## Download
 
-[Download LunaMaxing 0.3.1](https://github.com/AndreaScuto/lunamaxing/releases/download/v0.3.1/LunaMaxing-0.3.1.zip)
+[Download LunaMaxing 0.4.0](https://github.com/AndreaScuto/lunamaxing/releases/download/v0.4.0/LunaMaxing-0.4.0.zip)
 
 ## Model routing
 
@@ -41,7 +41,12 @@ reasoning. Edit `.lunamaxing.json` or override a value at invocation:
 
 ~~~text
 $lunamaxing agents.oracle.model=gpt-5.6-terra agents.fixer.model=gpt-5.6-luna
+$lunamaxing agents.oracle.model=gpt-6-astra agents.oracle.reasoning_effort=max
 ~~~
+
+`gpt-6-astra` is supported with low, medium, high, xhigh, or max reasoning.
+Every worker receives explicit spawn overrides; the runtime model shown by
+Codex is authoritative, not a model name written by the worker in its report.
 
 The orchestrator model inherits the current Codex session by default because a
 skill cannot switch its already-running parent model.

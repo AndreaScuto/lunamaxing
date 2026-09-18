@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 — 2026-09-18
+
+- Added documented GPT-6 Astra routing for the orchestrator and every worker role.
+- Made concrete worker model and reasoning overrides mandatory at spawn time.
+- Added runtime model mismatch rejection and auditable role-prefixed task names.
+- Stopped treating worker self-reported role/model labels as routing evidence.
+
 ## 0.3.1 — 2026-09-04
 
 - Changed the default Oracle routing to gpt-5.6-terra with max reasoning.

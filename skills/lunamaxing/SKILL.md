@@ -114,6 +114,30 @@ Explicit spawn settings take precedence over global subagent defaults. If a
 requested model or effort is unavailable, use the nearest available runtime
 setting and disclose the fallback.
 
+### Routing integrity gate
+
+Immediately before every worker spawn, resolve that canonical role with
+`scripts/configure.py spawn <role> [config]` (or the equivalent already-loaded
+configuration) and copy both returned values into the spawn call. For any
+concrete worker configuration, omitting `model` or `reasoning_effort` is a
+routing failure; never rely on the runtime's default subagent model.
+
+- Choose the role before resolving the model and keep it unchanged for that
+  spawn. Name the task with the canonical role as a prefix, such as
+  `oracle_sqlite_review`, so the runtime record remains auditable.
+- Treat the spawn call and runtime UI/metadata as authoritative. A worker's
+  self-reported role or model is not evidence of what actually ran.
+- If the runtime rejects an override, disclose the fallback before accepting
+  the result. If the runtime reports a different model after launch, reject the
+  result and retry once with the resolved explicit override.
+- Never label a Luna result as Oracle/Terra merely because its prompt or report
+  says so.
+
+Model IDs remain open to any value accepted by the current Codex host. GPT-6
+Astra is supported as `gpt-6-astra`; use `low`, `medium`, `high`, `xhigh`, or
+`max` reasoning. Oracle remains Terra/max by default unless configuration or an
+explicit invocation override selects Astra.
+
 A skill cannot change the model of the parent session that is already running.
 orchestrator.model therefore acts as a launch requirement: inherit accepts the
 current session; a concrete value tells the user which model to select before

@@ -33,6 +33,20 @@ by assets/lunamaxing.schema.json and starts with a Luna-heavy mapping:
 Model strings are deliberately open: replace them with any model ID the current
 Codex host accepts.
 
+GPT-6 Astra is available as `gpt-6-astra` and supports `low`, `medium`, `high`,
+`xhigh`, and `max` reasoning in Codex. For example:
+
+~~~json
+{
+  "agents": {
+    "oracle": {
+      "model": "gpt-6-astra",
+      "reasoning_effort": "max"
+    }
+  }
+}
+~~~
+
 ## Configuration shape
 
 ~~~json
@@ -71,6 +85,7 @@ An explicit invocation override has highest LunaMaxing precedence:
 
 ~~~text
 $lunamaxing agents.oracle.model=gpt-5.6-terra agents.oracle.reasoning_effort=xhigh
+$lunamaxing agents.oracle.model=gpt-6-astra agents.oracle.reasoning_effort=max
 $lunamaxing agents.fixer.model=gpt-5.6-luna delegation.max_workers=3
 ~~~
 
@@ -89,8 +104,11 @@ Resolution order is:
 3. explicit invocation or --set overrides.
 
 After resolution, Sol copies each role's model and reasoning_effort into the
-worker packet and passes them explicitly to the spawn call. Explicit spawn
-values take precedence over Codex global subagent defaults.
+worker packet and passes both explicitly to the spawn call. A concrete worker
+configuration must never fall through to Codex global subagent defaults. Prefix
+the runtime task name with the canonical role, for example
+`oracle_sqlite_review`, and treat runtime metadata—not the worker's prose—as
+the authoritative record of the model used.
 
 ## Orchestrator model
 
@@ -146,10 +164,13 @@ configured max_workers ceiling.
 
 A configured reasoning level may not be supported by its selected model. When
 the spawn tool rejects a combination, use that model's nearest available
-reasoning level or the runtime default and record the fallback. Never claim that
-a requested override was applied unless the spawn call accepted it.
+reasoning level only after disclosing the fallback. If runtime metadata reports
+a different model after launch, reject the result and retry once with the exact
+resolved override. Never claim that a requested override was applied based on
+the worker's self-report.
 
 Primary references:
 
 - [Codex subagents](https://learn.chatgpt.com/docs/agent-configuration/subagents)
 - [Codex configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
+- [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra)

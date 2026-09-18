@@ -31,7 +31,7 @@ tooling or documentation, choose the safer fallback.
 | spawn but blocking only | launch fewer packets and collect before dependent work |
 | no spawn | keep the complete plan in Sol; execute sequentially |
 | spawn without isolation | give every writer a disjoint path; make reviewers read-only |
-| no per-child overrides | use the strongest available defaults and disclose that no override occurred |
+| no per-child overrides | disclose the limitation; never claim role-specific routing occurred |
 | no completion notification | never promise wake-up after the turn; collect before the turn ends |
 | no structured result | paste the output contract into the packet and normalize manually |
 | unavailable test/build tools | mark validation not-run and escalate rather than claiming pass |
@@ -43,7 +43,8 @@ The preferred strategy is always bounded parallelism, not maximum parallelism.
 Resolve .lunamaxing.json before spawning and pass each role's model and
 reasoning_effort explicitly. The packaged default sends Oracle to Terra/max
 and the remaining specialist lanes to Luna/max. Project and invocation
-overrides may choose any model accepted by the current host.
+overrides may choose any model accepted by the current host, including
+`gpt-6-astra` with low, medium, high, xhigh, or max reasoning.
 
 Codex supports agents.default_subagent_model and
 agents.default_subagent_reasoning_effort as global fallbacks, while explicit
@@ -55,8 +56,10 @@ its model mid-turn. A configured concrete orchestrator model is therefore a
 launch requirement, while inherit accepts the current session.
 
 If a configured model or reasoning effort is unavailable, use the closest
-available setting, record the fallback, and preserve the role. A model override
-never transfers final authority away from Sol.
+available setting only after recording the fallback, and preserve the role. If
+runtime metadata disagrees with an accepted spawn, reject the result and retry
+once with explicit settings. Worker prose is never evidence of its runtime
+model. A model override never transfers final authority away from Sol.
 
 ## Background versus active parallelism
 

@@ -1,6 +1,6 @@
 {
   "name": "lunamaxing",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Eager task decomposition and configurable specialist model routing for Codex.",
   "author": {
     "name": "AndreaScuto",
@@ -31,6 +31,7 @@
     "defaultPrompt": [
       "Use LunaMaxing to decompose this task into specialist lanes and apply project model routing.",
       "Use LunaMaxing with Oracle on Terra and the other specialists on Luna.",
+      "Use LunaMaxing with Oracle on GPT-6 Astra and explicit model routing.",
       "Use LunaMaxing to split this feature into discovery, implementation, testing, and review waves."
     ],
     "brandColor": "#B9D8FF",
