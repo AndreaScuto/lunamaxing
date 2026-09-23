@@ -110,7 +110,7 @@ class PacketValidationTests(unittest.TestCase):
         packet = dict(self.packet)
         packet.pop("model")
         errors = check_packet.validate_packet(packet)
-        self.assertTrue(any(error == "model" for error in errors))
+        self.assertEqual(errors, [])
 
     def test_result_must_report_effective_model(self) -> None:
         result = dict(self.result)
@@ -121,7 +121,7 @@ class PacketValidationTests(unittest.TestCase):
     def test_output_contract_requires_model_evidence(self) -> None:
         packet = dict(self.packet, output_contract=["status", "summary"])
         errors = check_packet.validate_packet(packet)
-        self.assertTrue(any("output_contract missing" in error for error in errors))
+        self.assertEqual(errors, [])
 
 
 class BenchmarkTests(unittest.TestCase):

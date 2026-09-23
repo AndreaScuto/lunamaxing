@@ -1,6 +1,11 @@
 # Changelog
 
-## 0.4.0 — 2026-09-18
+## 0.5.0 — 2026-09-23
+
+- Replaced eager worker quotas with a judgment threshold: trivial work stays in Sol, parallel waves need two or more independent lanes.
+- Changed defaults to balanced delegation with zero minimum workers and inherit model routing (Oracle stays Terra/max for escalation).
+- Demoted Oracle and Reviewer to escalation-only lanes; Fixer ships its own regression test by default.
+- Slimmed worker packets to five required fields with optional routing, and replaced model-mismatch rejection with recorded fallback.
 
 - Added documented GPT-6 Astra routing for the orchestrator and every worker role.
 - Made concrete worker model and reasoning overrides mandatory at spawn time.

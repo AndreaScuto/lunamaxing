@@ -34,16 +34,25 @@ REASONING_EFFORTS = {
 STATUSES = {"DONE", "NEEDS_ORCHESTRATOR_DECISION", "BLOCKED"}
 PACKET_FIELDS = (
     "role",
-    "model",
-    "reasoning_effort",
     "objective",
     "scope",
     "do_not_touch",
-    "context",
     "acceptance_criteria",
     "validation",
+)
+OPTIONAL_PACKET_FIELDS = (
+    "model",
+    "reasoning_effort",
+    "context",
     "dependencies",
     "output_contract",
+    "ownership",
+    "read_only",
+    "risk",
+    "tool_budget",
+    "expected_files",
+    "stop_conditions",
+    "id",
 )
 RESULT_FIELDS = (
     "status",
@@ -123,37 +132,38 @@ def validate_packet(packet: dict[str, Any]) -> list[str]:
     role = packet.get("role")
     if role not in ROLES:
         errors.append(f"role must be one of: {', '.join(sorted(ROLES))}")
-    for field in ("objective", "context"):
-        if not isinstance(packet.get(field), str) or not packet[field].strip():
-            errors.append(f"{field} must be a non-empty string")
+    if not isinstance(packet.get("objective"), str) or not packet["objective"].strip():
+        errors.append("objective must be a non-empty string")
+    if "context" in packet and (
+        not isinstance(packet.get("context"), str) or not packet["context"].strip()
+    ):
+        errors.append("context must be a non-empty string when provided")
     for field in (
         "scope",
         "do_not_touch",
         "acceptance_criteria",
         "validation",
-        "dependencies",
-        "output_contract",
     ):
         if not isinstance(packet.get(field), list) or not all(
             isinstance(item, str) and item.strip() for item in packet[field]
         ):
             errors.append(f"{field} must be a list of non-empty strings")
+    for field in ("dependencies", "output_contract"):
+        if field in packet and (
+            not isinstance(packet.get(field), list)
+            or not all(isinstance(item, str) and item.strip() for item in packet[field])
+        ):
+            errors.append(f"{field} must be a list of non-empty strings when provided")
     if not packet.get("scope"):
         errors.append("scope must contain at least one path or symbol")
     if not packet.get("acceptance_criteria"):
         errors.append("acceptance_criteria must contain at least one criterion")
-    if not packet.get("output_contract"):
-        errors.append("output_contract must contain at least one field")
-    elif isinstance(packet.get("output_contract"), list):
-        for field in RESULT_FIELDS:
-            if field not in packet["output_contract"]:
-                errors.append(f"output_contract missing required field: {field}")
+    if "output_contract" in packet and not packet.get("output_contract"):
+        errors.append("output_contract must contain at least one field when provided")
 
     read_only = packet.get("read_only", False)
     if not isinstance(read_only, bool):
         errors.append("read_only must be boolean when provided")
-    if read_only is False and not isinstance(packet.get("ownership"), str):
-        errors.append("write-capable packets require an ownership string")
     if isinstance(packet.get("ownership"), str) and not packet["ownership"].strip():
         errors.append("ownership must be non-empty when provided")
     model = packet.get("model")

@@ -80,20 +80,23 @@ A coupled implementation is not automatically a zero-worker task. Extract
 support lanes:
 
 - Explorer maps the path before Sol edits.
-- Tester writes or specifies the behavioral contract.
-- Oracle examines a risky decision.
-- Reviewer checks the resulting diff.
+- Fixer ships its own focused regression test by default; separate Tester
+  lane only when behavior can be specified fully independently.
+- Oracle examines a risky decision (escalation only).
+- Reviewer checks the resulting diff only when risky.
 
 Sol may retain the coupled edit while still delegating evidence-producing work.
 
 ## No-delegation gate
 
-For eager mode, zero workers on non-trivial work is valid only when:
+Threshold, not quotas (legacy min_workers_nontrivial / target_workers_complex
+default to 0 and are ignored):
 
-1. the user explicitly requires local execution;
-2. the runtime cannot create a child;
-3. after this decomposition pass, every useful lane still depends continuously
-   on Sol or cannot be verified independently.
+1. <20 lines / 1 file / low-risk stays in Sol with a one-line
+   no-delegation reason;
+2. two or more independently ready packets run in parallel first;
+3. zero workers on non-trivial work is valid when the user requires local
+   execution, the runtime cannot spawn, or no safe bounded packet remains.
 
 Record the concrete no-delegation reason. The following are insufficient:
 

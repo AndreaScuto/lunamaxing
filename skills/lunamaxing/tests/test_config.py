@@ -31,10 +31,10 @@ class ModelRoutingTests(unittest.TestCase):
         self.assertEqual(resolved["agents"]["oracle"]["model"], "gpt-5.6-terra")
         self.assertEqual(resolved["agents"]["oracle"]["reasoning_effort"], "max")
         for role in ("explorer", "librarian", "designer", "fixer", "tester", "reviewer"):
-            self.assertEqual(resolved["agents"][role]["model"], "gpt-5.6-luna")
-            self.assertEqual(resolved["agents"][role]["reasoning_effort"], "max")
-        self.assertEqual(resolved["delegation"]["mode"], "eager")
-        self.assertEqual(resolved["delegation"]["min_workers_nontrivial"], 1)
+            self.assertEqual(resolved["agents"][role]["model"], "inherit")
+            self.assertEqual(resolved["agents"][role]["reasoning_effort"], "inherit")
+        self.assertEqual(resolved["delegation"]["mode"], "balanced")
+        self.assertEqual(resolved["delegation"]["min_workers_nontrivial"], 0)
 
     def test_project_config_overrides_one_role_without_erasing_defaults(self) -> None:
         resolved = self.configure.resolve_config(
@@ -54,8 +54,8 @@ class ModelRoutingTests(unittest.TestCase):
         )
         self.assertEqual(resolved["orchestrator"]["model"], "gpt-5.6-sol")
         self.assertEqual(resolved["agents"]["fixer"]["model"], "gpt-5.6-sol")
-        self.assertEqual(resolved["agents"]["fixer"]["reasoning_effort"], "max")
-        self.assertEqual(resolved["agents"]["designer"]["model"], "gpt-5.6-luna")
+        self.assertEqual(resolved["agents"]["fixer"]["reasoning_effort"], "inherit")
+        self.assertEqual(resolved["agents"]["designer"]["model"], "inherit")
 
     def test_inline_override_has_highest_precedence(self) -> None:
         resolved = self.configure.resolve_config(

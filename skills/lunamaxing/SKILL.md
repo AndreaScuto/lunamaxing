@@ -19,39 +19,32 @@ accepted fact.
 
 ## Mandatory decomposition pass
 
-Before beginning any non-trivial request, decompose the high-level goal even
-when the whole request initially looks coupled or difficult to delegate:
+Before beginning any non-trivial request, run one short decomposition pass:
 
 1. List the concrete outputs required for completion.
 2. Split them into discovery, decision, implementation, test, review, and
-   integration lanes.
-3. Split each lane again until a packet has one objective, one ownership
-   boundary, one validation path, and enough context to execute independently.
-4. Route each packet to the specialist whose lane matches the work.
-5. Build a dependency graph and dispatch every ready, non-overlapping packet in
-   the same wave.
+   integration lanes until each packet has one objective, one ownership
+   boundary, and one cheap verification path.
+3. Build a dependency graph: dispatch every ready, non-overlapping packet in
+   the same wave; put dependent work in later waves.
 
-Do not classify the entire high-level request as "not delegatable" before this
-pass. Sequential dependencies become ordered waves; they do not automatically
-make every underlying task Sol work.
+Routing threshold (judgment, not quotas):
 
-The default delegation mode is eager:
+- Truly isolated, clear, low-risk action (<20 lines, 1 file) stays in Sol.
+  Record a one-line no-delegation reason.
+- Two or more independently ready packets run in parallel before dependent work.
+- Otherwise Sol keeps only the coupled integration and still delegates any
+  safe bounded support lane (Explorer map, Tester contract, Oracle check,
+  Reviewer diff).
 
-- A truly isolated, clear, low-risk action may stay in Sol.
-- A non-trivial task should use at least min_workers_nontrivial when the runtime
-  is available and one safe bounded packet exists.
-- If two or more packets are independently ready, dispatch them in parallel
-  before starting dependent work.
-- Complex tasks should aim for target_workers_complex useful specialists, up to
-  max_workers, without inventing redundant work.
+Legacy quota fields min_workers_nontrivial / target_workers_complex default to
+0 and are ignored: never invent work to fill a worker count. The only ceiling
+is max_workers (default 5). Zero workers on non-trivial work is valid when the
+user requires local execution, the runtime cannot spawn, or no safe bounded
+packet remains after decomposition.
 
-If Sol keeps a non-trivial task local, state a short no-delegation reason. Valid
-reasons are: the user required local execution, the runtime cannot spawn, or no
-safe bounded packet remains after decomposition. "Sol can do it" is not a
-valid reason.
-
-Read references/decomposition.md for lane-splitting operators, routing rules,
-and a complete high-level feature example.
+Read references/decomposition.md for lane-splitting operators and a complete
+high-level feature example.
 
 ## Authority and non-goals
 
@@ -73,237 +66,120 @@ reconciliation, integration, final checks, and the user-facing decision.
 
 Route substantive specialist work by default:
 
-- internal repository reconnaissance -> Explorer;
+- internal repository reconnaissance -> **Explorer**;
 - current external documentation and library research -> Librarian;
-- architecture, risky trade-offs, or persistent debugging -> Oracle;
-- user-visible interface design and polish -> Designer;
-- bounded implementation -> Fixer;
-- independent behavioral tests -> Tester;
-- independent diff and regression review -> Reviewer.
+- bounded implementation + its focused regression test -> Fixer;
+- user-visible interface design and polish -> Designer.
+
+Escalation only (not default waves):
+
+- **Oracle** — read-only strategic advisor for risky architecture, hard
+  debugging after 2+ failed attempts, or security/data-integrity decisions
+  where uncertainty is expensive. Sol decides; Oracle advises.
+- Reviewer — read-only diff inspection only when the diff is risky
+  (security, concurrency, lifecycle, migration). Otherwise Sol reviews.
+- Tester as separate lane only when behavior can be specified fully
+  independently from implementation; by default the Fixer ships its own
+  regression test.
 
 If implementation is too coupled to parallelize, delegate the independent
 discovery, test design, or review lane and keep only the coupled integration in
-Sol. Do not keep a multi-step task entirely in Sol merely because every single
-step looks easy in isolation.
+Sol.
 
-## Runtime and model policy
+## Dispatch efficiency, sessions, background, design
 
-At the start of a run, load model routing in this order:
+- Reference paths/lines, don't paste files (`src/auth/token.ts:42`, not full
+  contents). Keep packets brief; reuse still-valid evidence.
+- Reuse an available specialist session when it fits; prefer the most recently
+  used matching session over a fresh spawn.
+- Background discipline: launch the complete ready wave together, do only
+  non-overlapping Sol work while children run, collect at terminal results,
+  then reconcile. Never poll; never promise wake-up after the turn unless the
+  runtime guarantees it.
+- Design handoff: Designer output (layout, spacing, hierarchy, motion,
+  affordances) is intentional. Sol may fix copy without changing feel; purely
+  mechanical follow-up may go to Fixer, visual judgment goes back to Designer.
+- File ops: <20 lines / 1 file / low-risk stays local. Multi-file or risky
+  work gets explicit ownership domains.
 
-1. packaged defaults from assets/lunamaxing.example.json;
-2. project overrides from .lunamaxing.json at the current repository root;
-3. explicit invocation overrides such as
-   agents.oracle.model=gpt-5.6-terra or
-   agents.fixer.reasoning_effort=high.
+## Runtime and model policy (optional)
 
-Use scripts/configure.py to initialize, validate, resolve, or inspect this
-configuration. Read references/configuration.md for the complete contract.
+Model routing is optional, not a gate. Defaults are inherit (use the running
+session) unless a project .lunamaxing.json sets a concrete value.
 
-The packaged luna-heavy defaults are:
+Use scripts/configure.py to initialize, validate, or resolve
+.lunamaxing.json. Explicit spawn overrides take precedence over global
+subagent defaults when the runtime supports them. If a model or
+reasoning_effort is unavailable, record the fallback as
+requested -> effective and continue; never discard verified work over a model
+mismatch. A worker's self-reported model is never evidence; runtime metadata
+is authoritative but not a reason to reject an otherwise verified diff.
 
-- orchestrator: inherit the already-running session model and reasoning;
-- Oracle: gpt-5.6-terra at max reasoning;
-- Explorer, Librarian, Designer, Fixer, Tester, and Reviewer: gpt-5.6-luna at
-  max reasoning;
-- delegation: eager, minimum one worker for non-trivial work, target three for
-  complex work, ceiling five.
+Example packet routing fields (optional):
 
-Attach the resolved model and reasoning_effort to every worker packet and pass
-them as explicit spawn overrides when the collaboration tool supports them.
-Explicit spawn settings take precedence over global subagent defaults. If a
-requested model or effort is unavailable, use the nearest available runtime
-setting and disclose the fallback.
-
-### Routing integrity gate
-
-Immediately before every worker spawn, resolve that canonical role with
-`scripts/configure.py spawn <role> [config]` (or the equivalent already-loaded
-configuration) and copy both returned values into the spawn call. For any
-concrete worker configuration, omitting `model` or `reasoning_effort` is a
-routing failure; never rely on the runtime's default subagent model.
-
-- Choose the role before resolving the model and keep it unchanged for that
-  spawn. Name the task with the canonical role as a prefix, such as
-  `oracle_sqlite_review`, so the runtime record remains auditable.
-- Treat the spawn call and runtime UI/metadata as authoritative. A worker's
-  self-reported role or model is not evidence of what actually ran.
-- If the runtime rejects an override, disclose the fallback before accepting
-  the result. If the runtime reports a different model after launch, reject the
-  result and retry once with the resolved explicit override.
-- Never label a Luna result as Oracle/Terra merely because its prompt or report
-  says so.
-
-Model IDs remain open to any value accepted by the current Codex host. GPT-6
-Astra is supported as `gpt-6-astra`; use `low`, `medium`, `high`, `xhigh`, or
-`max` reasoning. Oracle remains Terra/max by default unless configuration or an
-explicit invocation override selects Astra.
-
-A skill cannot change the model of the parent session that is already running.
-orchestrator.model therefore acts as a launch requirement: inherit accepts the
-current session; a concrete value tells the user which model to select before
-invoking LunaMaxing and can be checked when the current model is observable.
+~~~yaml
+model: "inherit"
+reasoning_effort: "inherit"
+~~~
 
 Inspect runtime capabilities before a real wave. Read
 references/runtime-capabilities.md when parallel execution, completion,
-overrides, or workspace isolation matters. Distinguish active parallelism from
-autonomous background continuation and never promise the latter unless the
-runtime guarantees it.
-
-Read references/runtime-notes.md when current Codex lifecycle behavior matters.
+overrides, or workspace isolation matters. Read references/runtime-notes.md
+when current Codex lifecycle behavior matters. Extra reading is optional:
+references/protocols.md, references/librarian.md, references/benchmarks.md,
+references/configuration.md, references/evals.md.
 
 ## Decision and execution procedure
 
-1. **Understand.** Restate the objective, constraints, repository state, and
-   observable completion criteria.
-2. **Configure.** Resolve .lunamaxing.json plus explicit overrides. Check any
-   concrete orchestrator requirement and compute model/reasoning settings for
-   every available role.
-3. **Decompose.** Run the mandatory decomposition pass. Produce a short work
-   graph with independent ready lanes and dependency-ordered later lanes.
-4. **Route.** Assign each lane to Explorer, Librarian, Oracle, Designer, Fixer,
-   Tester, Reviewer, or Sol using the direct work boundary above.
-5. **Preflight.** Inspect child-spawn, nonblocking execution, completion,
-   model/reasoning override, structured-result, and isolation capabilities.
-6. **Specify.** Define acceptance and verification before spawning. Send every
-   worker the packet in references/protocols.md, including resolved model and
-   reasoning_effort.
-7. **Spawn.** Launch all independent packets in the wave together. Give each
-   writer one non-overlapping ownership domain; read-only specialists do not
-   edit.
-8. **Continue.** While children run, Sol performs only non-overlapping
-   coordination and integration preparation. Do not immediately wait before
-   launching the rest of the ready wave.
-9. **Collect.** Track each child until a terminal result, then record status and
-   evidence. Do not confuse silence, idle state, or a summary with completion.
-10. **Verify.** Inspect the actual diff, files, tool output, tests, sources, and
-    scope. Reject unsupported claims, unrelated edits, and contradictions.
-11. **Integrate.** Accept only verified results, resolve conflicts in Sol, and
-    launch the next dependency-ready wave.
-12. **Finish.** Run repository-level validation. Sol alone decides DONE and
-    reports model fallbacks, no-delegation reasons, risks, and unresolved work.
-
-## Worker roles
-
-Roles are configurable behavioral lanes, not authorities:
-
-- **Oracle** — read-only strategic advisor for architecture, risky trade-offs,
-  persistent debugging, security/data-integrity decisions, and high-value
-  review. Use it when uncertainty is expensive; do not spend it on routine
-  implementation.
-- **Explorer** — read-only internal repository reconnaissance. Locate files,
-  symbols, callers, tests, module boundaries, and likely change surfaces using
-  GitNexus, LSP, indexes, or text search, then return compressed evidence.
-- **Librarian** — read-only external knowledge retrieval for current official
-  documentation, APIs, libraries, upstream issues, and examples. Label claims
-  FACT, INFERENCE, RECOMMENDATION, or UNKNOWN and cite external facts.
-- **Designer** — own bounded UI/UX design and related implementation: layout,
-  hierarchy, interaction, responsiveness, accessibility, and visual polish.
-  Do not redefine product scope.
-- **Fixer** — implement a bounded, already-understood correction within assigned
-  ownership and run focused validation. Do not research architecture or perform
-  unrelated cleanup.
-- **Tester** — derive behavioral and regression tests independently from the
-  contract, exercise boundaries, and report failures plainly.
-- **Reviewer** — independently inspect a patch for correctness, regressions,
-  security, concurrency, lifecycle, resource, and acceptance issues. It does
-  not declare the whole task complete.
-
-The legacy Researcher role maps to Librarian. Read references/librarian.md for
-the separate Explorer and Librarian evidence contracts.
+1. **Understand.** Restate objective, constraints, and observable DONE criteria.
+2. **Decompose + Route.** Produce the short work graph; assign each lane to
+   Explorer, Librarian, Fixer, Designer, Sol, or (escalation) Oracle/Reviewer.
+3. **Specify.** Define acceptance + verification. Send each worker a 5-field
+   packet (below).
+4. **Spawn.** Launch all independent packets together with disjoint ownership.
+5. **Verify + Integrate.** Inspect diff, tests, sources. Accept only verified
+   results; resolve conflicts in Sol; launch the next ready wave.
+6. **Finish.** Run repository-level checks. Sol alone decides DONE.
 
 ## Minimum worker packet
 
-Every packet must be explicit and small:
+Every packet needs only five fields:
 
 ~~~yaml
-role: fixer
-model: "gpt-5.6-luna"
-reasoning_effort: "max"
-objective: "Fix refresh-token expiration handling"
+objective: "Invalidate a refresh token during explicit logout."
 scope:
   - src/auth/token.ts
-  - src/auth/session.ts
 do_not_touch:
   - database schema
   - frontend
-  - unrelated formatting
-context: "Refresh tokens remain usable after explicit logout."
 acceptance_criteria:
   - "logout invalidates the refresh token"
-  - "existing login flow remains unchanged"
 validation:
   - "npm test -- auth"
-  - "npm run typecheck"
-ownership: "src/auth/**"
-dependencies: []
-output_contract:
-  - status
-  - summary
-  - model_used
-  - reasoning_effort_used
-  - model_fallback
-  - files_changed
-  - tests_run
-  - evidence
-  - assumptions
-  - unresolved_risks
 ~~~
 
-Use the smallest scope that can satisfy the objective. Include forbidden scope
-and ownership for every write-capable packet. If the task is broader or less
-bounded than expected, return NEEDS_ORCHESTRATOR_DECISION; do not invent a
-wider plan.
+Optional when useful: context, ownership (`src/auth/**`), dependencies: [],
+read_only: true, risk, stop_conditions (return NEEDS_ORCHESTRATOR_DECISION,
+do not self-expand), plus model / reasoning_effort overrides.
+Use the smallest scope that satisfies the objective.
 
 ## Verification, failure, and state
 
-Define these gates before execution:
+Gates (proportional to risk, smallest check that proves the claim):
 
-- **Implementation:** the diff stays within scope and has no unrelated files.
-- **Correctness:** every acceptance criterion is satisfied.
-- **Validation:** the narrowest relevant tests/static checks pass, with
-  regression coverage where appropriate.
-- **Evidence:** each claim maps to observable code, tool output, test output,
-  or cited documentation.
-- **Integration:** accepted results do not conflict with other accepted work.
+- **Scope:** diff stays within scope, no unrelated files.
+- **Correctness:** every acceptance criterion satisfied.
+- **Validation:** narrowest relevant tests/checks pass; mark not-run with
+  reason instead of claiming pass.
+- **Evidence:** claims map to diff, file:line, tool output, or cited source.
+- **Integration:** accepted results do not conflict.
 
-Use this state model for reasoning and reporting:
+Worker statuses are only DONE | NEEDS_ORCHESTRATOR_DECISION | BLOCKED. Allow
+at most one retry per packet with a corrected contract; after a second failure
+Sol investigates locally. Do not spawn workers for consensus.
 
-~~~text
-UNDERSTAND -> CONFIGURE -> DECOMPOSE -> PLAN -> ROUTE -> DELEGATE
-     ^                                                        |
-     |                                                        v
-  BLOCKED <--- NEEDS_ORCHESTRATOR_DECISION <- EXECUTE -> COLLECT
-     ^                         |                              |
-     |                         +-- retry <= configured -------v
-     +------------------------- Sol investigates           VERIFY
-                                                             |
-                                                             v
-                                                   INTEGRATE -> FINAL_VALIDATE -> DONE
-~~~
-
-Worker statuses are only:
-
-~~~text
-DONE | NEEDS_ORCHESTRATOR_DECISION | BLOCKED
-~~~
-
-Allow at most one retry per packet with a corrected contract. After a second
-failure, stop delegating that packet and investigate or implement it in Sol.
-Do not spawn more workers merely to obtain consensus.
-
-## Parallelism and write safety
-
-- Spawn a complete wave of independent ready packets; do not serialize them by
-  habit.
-- Keep useful Sol work running while children execute.
-- Use one writable ownership domain per worker per wave. Prefer disjoint paths.
-- Make reviewers read-only. If isolation is unavailable, serialize overlapping
-  edits and inspect the shared diff after every accepted change.
-- Treat indexes, caches, and worker summaries as navigation evidence, not
-  runtime truth. Sol must verify high-impact conclusions directly.
-- If a capability is missing, fall back to fewer workers, local execution,
-  read-only review, or sequential waves. Never pretend isolation, wake-up, or
-  model overrides exist.
+State shorthand: UNDERSTAND -> DECOMPOSE -> ROUTE -> EXECUTE -> COLLECT ->
+VERIFY -> INTEGRATE -> DONE (plus BLOCKED / RETRY x1).
 
 ## Final Sol report
 
@@ -321,7 +197,5 @@ known_risks: []
 unresolved_items: []
 ~~~
 
-The optimization target is verified useful output per unit of time, cost, and
-orchestrator context—not the number of agents. Use
-references/benchmarks.md before making performance claims and
-references/evals.md when checking behavioral adherence to this policy.
+The target is verified useful output per unit of time, cost, and orchestrator
+context — not worker count.

@@ -24,7 +24,7 @@ can still delegate discovery, testing, review, or architectural analysis.
 
 ## Download
 
-[Download LunaMaxing 0.4.0](https://github.com/AndreaScuto/lunamaxing/releases/download/v0.4.0/LunaMaxing-0.4.0.zip)
+[Download LunaMaxing 0.5.0](https://github.com/AndreaScuto/lunamaxing/releases/download/v0.5.0/LunaMaxing-0.5.0.zip)
 
 ## Model routing
 

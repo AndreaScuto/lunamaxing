@@ -41,10 +41,9 @@ The preferred strategy is always bounded parallelism, not maximum parallelism.
 ## Model and reasoning selection
 
 Resolve .lunamaxing.json before spawning and pass each role's model and
-reasoning_effort explicitly. The packaged default sends Oracle to Terra/max
-and the remaining specialist lanes to Luna/max. Project and invocation
-overrides may choose any model accepted by the current host, including
-`gpt-6-astra` with low, medium, high, xhigh, or max reasoning.
+reasoning_effort explicitly only when an override is needed. Otherwise use
+inherit and the runtime default. A mismatch between requested and effective
+model is recorded as fallback, never a reason to discard verified work.
 
 Codex supports agents.default_subagent_model and
 agents.default_subagent_reasoning_effort as global fallbacks, while explicit

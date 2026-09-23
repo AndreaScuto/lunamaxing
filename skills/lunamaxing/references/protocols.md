@@ -11,17 +11,17 @@ A packet is complete only when it answers these questions:
 | Field | Required | Meaning |
 | --- | --- | --- |
 | role | yes | Oracle, Explorer, Librarian, Designer, Fixer, Tester, or Reviewer |
-| model | worker | Resolved model ID passed to the spawn call |
-| reasoning_effort | worker | Resolved effort passed to the spawn call |
+| model | optional | Resolved model ID; defaults to inherit when runtime handles it |
+| reasoning_effort | optional | Resolved effort; defaults to inherit |
 | objective | yes | One observable outcome, not a general project goal |
 | scope | yes | Files, symbols, or read-only search boundary |
 | do_not_touch | yes | Explicit forbidden paths, systems, and cleanup |
-| context | yes | The minimum facts needed to work safely |
+| context | optional | The minimum facts needed to work safely |
 | acceptance_criteria | yes | Observable conditions for success |
 | validation | yes | Commands, checks, sources, or fixtures to inspect |
 | ownership | write work | The single writable domain owned by this worker |
-| dependencies | yes | Packet IDs or prerequisites; use [] when none |
-| output_contract | yes | Fields the worker must return |
+| dependencies | optional | Packet IDs or prerequisites; use [] when none |
+| output_contract | optional | Default: status, summary, files_changed, tests_run, evidence |
 
 Optional fields can make a packet safer:
 
@@ -167,11 +167,10 @@ Sol must inspect the actual working tree, not only the worker's reported
 files. If the worker edited outside scope, reject or repair in Sol before
 integration.
 
-Sol must also compare the runtime model with the resolved route. A task named
-with a different role, an omitted concrete override, or runtime metadata that
-disagrees with the packet is a failed route. Reject that result and use the
-single configured retry; do not repair the mismatch by changing the label in
-the report.
+Sol must also compare the runtime model with the resolved route. If runtime
+metadata disagrees with the packet, record it as requested -> effective
+fallback and continue; never discard verified work over a model mismatch.
+Worker prose is never evidence of its runtime model.
 
 ## State transitions
 

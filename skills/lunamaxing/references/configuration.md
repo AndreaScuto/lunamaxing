@@ -104,11 +104,13 @@ Resolution order is:
 3. explicit invocation or --set overrides.
 
 After resolution, Sol copies each role's model and reasoning_effort into the
-worker packet and passes both explicitly to the spawn call. A concrete worker
-configuration must never fall through to Codex global subagent defaults. Prefix
+worker packet only when an explicit override is needed. A packet without
+model fields uses inherit and the runtime default. Prefix
 the runtime task name with the canonical role, for example
 `oracle_sqlite_review`, and treat runtime metadata—not the worker's prose—as
-the authoritative record of the model used.
+the authoritative record of the model used. On mismatch, record
+requested -> effective fallback and continue; never discard verified work
+over a model label.
 
 ## Orchestrator model
 
