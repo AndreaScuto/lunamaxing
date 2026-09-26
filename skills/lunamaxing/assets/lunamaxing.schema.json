@@ -13,29 +13,9 @@
     },
     "agents": {
       "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "oracle": {
-          "$ref": "#/$defs/modelConfig"
-        },
-        "explorer": {
-          "$ref": "#/$defs/modelConfig"
-        },
-        "librarian": {
-          "$ref": "#/$defs/modelConfig"
-        },
-        "designer": {
-          "$ref": "#/$defs/modelConfig"
-        },
-        "fixer": {
-          "$ref": "#/$defs/modelConfig"
-        },
-        "tester": {
-          "$ref": "#/$defs/modelConfig"
-        },
-        "reviewer": {
-          "$ref": "#/$defs/modelConfig"
-        }
+      "description": "configure.py validates role names against scripts/roles.py",
+      "additionalProperties": {
+        "$ref": "#/$defs/modelConfig"
       }
     },
     "delegation": {
@@ -50,27 +30,16 @@
           ]
         },
         "max_workers": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 5
-        },
-        "min_workers_nontrivial": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 5
-        },
-        "target_workers_complex": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 5
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
         },
         "max_retries_per_packet": {
           "type": "integer",
           "minimum": 0,
           "maximum": 2
-        },
-        "decompose_before_local": {
-          "type": "boolean"
         }
       }
     }
@@ -101,4 +70,3 @@
     }
   }
 }
-

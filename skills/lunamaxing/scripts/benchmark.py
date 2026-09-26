@@ -7,7 +7,7 @@ import argparse
 import json
 import statistics
 import sys
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any, Iterable
 
 REQUIRED_FIELDS = (
@@ -58,12 +58,21 @@ INTEGER_FIELDS = (
     "worker_count",
 )
 BOOLEAN_FIELDS = ("tests_passed", "verified_useful")
+CASES_PATH = Path(__file__).resolve().parents[1] / "assets" / "eval-cases.json"
 
 
 def main() -> int:
     args = parse_args()
     if args.command == "init":
         return init_dataset(args.output)
+    if args.command == "fixture":
+        try:
+            materialize_case(args.case_id, args.output)
+        except (OSError, ValueError) as exc:
+            print(f"Benchmark fixture error: {exc}")
+            return 1
+        print(f"Benchmark fixture written to {args.output}")
+        return 0
     try:
         dataset = load_dataset(args.path)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
@@ -83,6 +92,10 @@ def parse_args() -> argparse.Namespace:
     init_parser = subparsers.add_parser("init", help="create an empty benchmark file")
     init_parser.add_argument("--output", type=Path, required=True)
 
+    fixture_parser = subparsers.add_parser("fixture", help="materialize a reproducible evaluation case")
+    fixture_parser.add_argument("case_id")
+    fixture_parser.add_argument("--output", type=Path, required=True)
+
     validate_parser = subparsers.add_parser("validate", help="validate recorded runs")
     validate_parser.add_argument("path", type=Path)
     validate_parser.add_argument("--json", action="store_true", dest="as_json")
@@ -94,6 +107,38 @@ def parse_args() -> argparse.Namespace:
     summary_parser.add_argument("--by-category", action="store_true")
     summary_parser.add_argument("--json", action="store_true", dest="as_json")
     return parser.parse_args()
+
+
+def load_cases() -> list[dict[str, Any]]:
+    cases = json.loads(CASES_PATH.read_text(encoding="utf-8"))
+    if not isinstance(cases, list):
+        raise ValueError("evaluation cases must be a JSON array")
+    return cases
+
+
+def materialize_case(case_id: str, output: Path) -> None:
+    case = next((item for item in load_cases() if item.get("id") == case_id), None)
+    if case is None:
+        raise ValueError(f"unknown case: {case_id}")
+    if output.exists():
+        raise FileExistsError(f"refusing to overwrite {output}")
+    files = case["files"]
+    for raw_path in files:
+        parts = raw_path.replace("\\", "/").split("/")
+        if PureWindowsPath(raw_path).drive or raw_path.startswith("/") or any(
+            part in {"", ".", ".."} for part in parts
+        ):
+            raise ValueError(f"invalid fixture path: {raw_path}")
+    output.mkdir(parents=True)
+    for raw_path, content in files.items():
+        destination = output.joinpath(*raw_path.replace("\\", "/").split("/"))
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(content, encoding="utf-8")
+    task = [f"# {case_id}", "", case["prompt"], "", "Acceptance:"]
+    task.extend(f"- {item}" for item in case["acceptance"])
+    task.extend(["", "Validation:"])
+    task.extend(f"- {item}" for item in case["validation"])
+    (output / "TASK.md").write_text("\n".join(task) + "\n", encoding="utf-8")
 
 
 def init_dataset(output: Path) -> int:
@@ -149,8 +194,8 @@ def validate_run(index: int, run: dict[str, Any]) -> list[str]:
             errors.append(f"runs[{index}].{field} must be a non-negative integer or null")
     for field in BOOLEAN_FIELDS:
         value = run.get(field)
-        if not isinstance(value, bool):
-            errors.append(f"runs[{index}].{field} must be boolean")
+        if value is not None and not isinstance(value, bool):
+            errors.append(f"runs[{index}].{field} must be boolean or null")
     mode = run.get("delegation_mode")
     if mode not in {"conservative", "balanced", "eager"}:
         errors.append(
@@ -261,18 +306,13 @@ def summarize_group(runs: list[dict[str, Any]]) -> dict[str, Any]:
             round(sum(values) / len(values), 3) if values else None
         )
         summary[f"n_{field}"] = len(values)
-    candidates = sum(
-        run["delegation_candidates"]
-        for run in runs
-        if isinstance(run.get("delegation_candidates"), int)
-        and not isinstance(run["delegation_candidates"], bool)
-    )
-    delegated = sum(
-        run["delegated_packets"]
-        for run in runs
-        if isinstance(run.get("delegated_packets"), int)
-        and not isinstance(run["delegated_packets"], bool)
-    )
+    counted = [
+        run for run in runs
+        if all(isinstance(run.get(field), int) and not isinstance(run[field], bool)
+               for field in ("delegation_candidates", "delegated_packets"))
+    ]
+    candidates = sum(run["delegation_candidates"] for run in counted)
+    delegated = sum(run["delegated_packets"] for run in counted)
     summary["delegation_rate"] = (
         round(delegated / candidates, 3) if candidates else None
     )
@@ -290,9 +330,13 @@ def available_numbers(runs: Iterable[dict[str, Any]], field: str) -> list[float]
 def compare_groups(
     baseline: list[dict[str, Any]], candidate: list[dict[str, Any]]
 ) -> dict[str, Any]:
+    matched = {run["task_id"] for run in baseline} & {run["task_id"] for run in candidate}
+    baseline = [run for run in baseline if run["task_id"] in matched]
+    candidate = [run for run in candidate if run["task_id"] in matched]
     base = summarize_group(baseline)
     current = summarize_group(candidate)
     return {
+        "matched_task_count": len(matched),
         "baseline_count": len(baseline),
         "candidate_count": len(candidate),
         "duration_speedup": ratio(

@@ -13,8 +13,8 @@ Record a yes/no/unknown result for each capability:
 | parallel spawn | launches independent packets together | run one packet at a time |
 | nonblocking child execution | lets Sol do useful work while children run | keep the wave small and collect at explicit safe points |
 | completion notification | tells Sol when a child is ready | poll/collect only while the active turn remains open |
-| per-child model override | selects Luna for narrow work | use runtime default |
-| per-child reasoning override | reserves maximum effort for workers | use runtime default |
+| per-child model override | selects the configured role model | use runtime default and record fallback |
+| per-child reasoning override | selects configured effort | use runtime default and record fallback |
 | structured child result | preserves status and evidence fields | require a strict text/YAML contract |
 | isolated workdir | prevents write collisions | disjoint ownership and serialized overlap |
 | child cancellation | stops stale or unsafe work | do not start risky packets without a manual stop path |
@@ -36,7 +36,10 @@ tooling or documentation, choose the safer fallback.
 | no structured result | paste the output contract into the packet and normalize manually |
 | unavailable test/build tools | mark validation not-run and escalate rather than claiming pass |
 
-The preferred strategy is always bounded parallelism, not maximum parallelism.
+Dispatch useful independent packets; Codex decides how many can run. The native
+`agents.max_concurrent_threads_per_session` setting can cap open subagents.
+Official docs do not guarantee automatic queuing above that cap, so a failed
+spawn is a capacity signal, not evidence that a packet is running.
 
 ## Model and reasoning selection
 
@@ -48,17 +51,18 @@ model is recorded as fallback, never a reason to discard verified work.
 Codex supports agents.default_subagent_model and
 agents.default_subagent_reasoning_effort as global fallbacks, while explicit
 spawn values take precedence. Custom Codex agent files may also define model
-and model_reasoning_effort. Do not invent other runtime keys.
+and model_reasoning_effort. Custom agent file values can take precedence over
+spawn overrides; inspect the effective runtime model. Do not invent other
+runtime keys.
 
 The orchestrator is the already-running parent session; the skill cannot switch
 its model mid-turn. A configured concrete orchestrator model is therefore a
 launch requirement, while inherit accepts the current session.
 
-If a configured model or reasoning effort is unavailable, use the closest
-available setting only after recording the fallback, and preserve the role. If
-runtime metadata disagrees with an accepted spawn, reject the result and retry
-once with explicit settings. Worker prose is never evidence of its runtime
-model. A model override never transfers final authority away from Sol.
+If a configured model or reasoning effort is unavailable, record requested ->
+effective and preserve the role. A model mismatch alone does not invalidate
+verified work. Worker prose is never evidence of its runtime model. A model
+override never transfers final authority away from Sol.
 
 ## Background versus active parallelism
 
@@ -99,13 +103,15 @@ Never resolve an ownership conflict by silently accepting the last write.
 
 ## Cost and resource guardrails
 
-Worker count is bounded by:
+Useful concurrent work is bounded by:
 
 ~~~text
-min(independent_ready_tasks, configured_ceiling, runtime_limit)
+independent ready tasks + native runtime capacity + write safety
 ~~~
 
-Use zero workers for trivial work. Reduce fan-out when:
+There is no LunaMaxing default worker ceiling. An explicit user
+`delegation.max_workers` value may further limit a run. Use zero workers for
+trivial work. Reduce fan-out when:
 
 - packets need frequent coordination;
 - workers contend for the same files;

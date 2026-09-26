@@ -101,10 +101,60 @@ class PacketValidationTests(unittest.TestCase):
         )
         self.assertEqual(check_packet.validate_packet(packet), [])
 
+    def test_read_only_roles_cannot_be_writers(self) -> None:
+        for role in ("oracle", "explorer", "librarian", "reviewer"):
+            with self.subTest(role=role):
+                packet = dict(self.packet, role=role, read_only=False)
+                self.assertTrue(check_packet.validate_packet(packet))
+
+    def test_writers_need_ownership(self) -> None:
+        for role in ("fixer", "designer"):
+            with self.subTest(role=role):
+                packet = dict(self.packet, role=role, ownership=[])
+                self.assertTrue(any("ownership" in error for error in check_packet.validate_packet(packet)))
+
+    def test_tester_writes_only_test_ownership(self) -> None:
+        packet = dict(self.packet, role="tester", read_only=True, ownership=None)
+        self.assertEqual(check_packet.validate_packet(packet), [])
+        packet.update(read_only=False, scope=["tests/**"], ownership="tests/**")
+        self.assertEqual(check_packet.validate_packet(packet), [])
+        result = dict(self.result, files_changed=["src/main.py"])
+        errors = check_packet.validate_result_against_packet(result, packet)
+        self.assertTrue(any("non-test-owned" in error for error in errors))
+        packet["ownership"] = "src/**"
+        self.assertTrue(any("tests" in error for error in check_packet.validate_packet(packet)))
+
+    def test_done_requires_evidence(self) -> None:
+        self.assertTrue(any("evidence" in error for error in check_packet.validate_result(dict(self.result, evidence=[]))))
+        weak = dict(self.result, evidence=[{"kind": "test"}])
+        self.assertTrue(any("evidence[0]" in error for error in check_packet.validate_result(weak)))
+        self.assertEqual(check_packet.validate_result(self.result), [])
+
+    def test_result_enforces_ownership_and_forbidden_paths(self) -> None:
+        packet = dict(self.packet, scope=["src/**"], ownership="src/parser.py", do_not_touch=["src/private/**"])
+        outside = dict(self.result, files_changed=["src/other.py"])
+        forbidden = dict(self.result, files_changed=["src/private/key.py"])
+        self.assertTrue(any("ownership" in error for error in check_packet.validate_result_against_packet(outside, packet)))
+        self.assertTrue(any("forbidden" in error for error in check_packet.validate_result_against_packet(forbidden, packet)))
+
     def test_invalid_reasoning_effort_is_rejected(self) -> None:
-        packet = dict(self.packet, reasoning_effort="turbo")
-        errors = check_packet.validate_packet(packet)
-        self.assertTrue(any("reasoning_effort" in error for error in errors))
+        for value in ("turbo", []):
+            with self.subTest(value=value):
+                packet = dict(self.packet, reasoning_effort=value)
+                errors = check_packet.validate_packet(packet)
+                self.assertTrue(any("reasoning_effort" in error for error in errors))
+
+    def test_malformed_result_values_return_errors(self) -> None:
+        result = dict(
+            self.result,
+            status=[],
+            reasoning_effort_used={},
+            files_changed=None,
+            tests_run=[{"command": "test", "result": []}],
+        )
+        errors = check_packet.validate_result(result)
+        self.assertTrue(any("files_changed must be a list" in error for error in errors))
+        self.assertTrue(errors)
 
     def test_missing_model_routing_is_rejected(self) -> None:
         packet = dict(self.packet)
@@ -210,10 +260,36 @@ class WaveValidationTests(unittest.TestCase):
         errors = check_wave.validate_wave(wave)
         self.assertTrue(any("ownership conflict" in error for error in errors))
 
+    def test_nested_glob_ownership_conflict_is_rejected(self) -> None:
+        wave = [
+            self.packet("a", "src/*/token.py"),
+            self.packet("b", "src/auth/**"),
+        ]
+        self.assertTrue(any("ownership conflict" in error for error in check_wave.validate_wave(wave)))
+
+    def test_single_star_does_not_authorize_nested_path(self) -> None:
+        self.assertFalse(check_packet.path_is_allowed("src/sub/a.py", ["src/*.py"]))
+        wave = [self.packet("a", "src/*.py"), self.packet("b", "src/sub/**")]
+        self.assertEqual(check_wave.validate_wave(wave), [])
+
     def test_same_wave_dependency_is_rejected(self) -> None:
         wave = [self.packet("a", "backend/**"), self.packet("b", "frontend/**", "a")]
         errors = check_wave.validate_wave(wave)
         self.assertTrue(any("later wave" in error for error in errors))
+
+    def test_duplicate_ids_and_external_dependencies_use_completion_context(self) -> None:
+        duplicate = [self.packet("a", "one/**"), self.packet("a", "two/**")]
+        self.assertTrue(any("duplicate packet id" in error for error in check_wave.validate_wave(duplicate)))
+        unknown = [self.packet("b", "two/**", "missing")]
+        self.assertFalse(any("unknown dependency" in error for error in check_wave.validate_wave(unknown)))
+        self.assertTrue(any("unknown dependency" in error for error in check_wave.validate_wave(unknown, completed_ids=[])))
+        previous = [self.packet("b", "two/**", "previous")]
+        self.assertEqual(check_wave.validate_wave(previous, completed_ids=["previous"]), [])
+
+    def test_more_than_five_independent_packets_pass(self) -> None:
+        wave = [self.packet(str(i), f"module{i}/**") for i in range(8)]
+        self.assertEqual(check_wave.validate_wave(wave), [])
+        self.assertTrue(any("ceiling" in error for error in check_wave.validate_wave(wave, max_workers=5)))
 
 
 class StateLogTests(unittest.TestCase):

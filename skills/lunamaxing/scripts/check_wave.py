@@ -15,6 +15,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from check_packet import validate_packet  # noqa: E402
+from roles import ROLE_REGISTRY, canonical_role  # noqa: E402
 
 
 def main() -> int:
@@ -24,14 +25,15 @@ def main() -> int:
     except (OSError, json.JSONDecodeError) as exc:
         return emit(args, [f"unable to read JSON: {exc}"])
     packets = payload.get("wave") if isinstance(payload, dict) else payload
-    errors = validate_wave(packets, args.max_workers)
+    completed_ids = payload.get("completed_ids") if isinstance(payload, dict) else None
+    errors = validate_wave(packets, args.max_workers, completed_ids)
     return emit(args, errors)
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("path", type=Path)
-    parser.add_argument("--max-workers", type=int, default=5)
+    parser.add_argument("--max-workers", type=int, help="Optional worker ceiling for this wave.")
     parser.add_argument("--json", action="store_true", dest="as_json")
     return parser.parse_args()
 
@@ -49,14 +51,24 @@ def emit(args: argparse.Namespace, errors: list[str]) -> int:
     return 1 if errors else 0
 
 
-def validate_wave(packets: Any, max_workers: int = 5) -> list[str]:
+def validate_wave(
+    packets: Any, max_workers: int | None = None, completed_ids: Any = None
+) -> list[str]:
+    """Validate one wave; unknown external dependencies need completed_ids context."""
     if not isinstance(packets, list):
         return ["wave must be a JSON array"]
     errors: list[str] = []
-    if max_workers < 0:
-        errors.append("max_workers must be non-negative")
-    if len(packets) > max_workers:
-        errors.append(f"wave contains {len(packets)} packets; ceiling is {max_workers}")
+    if completed_ids is not None and (
+        not isinstance(completed_ids, list)
+        or not all(isinstance(item, str) and item.strip() for item in completed_ids)
+    ):
+        errors.append("completed_ids must be a list of non-empty packet IDs")
+        completed_ids = None
+    if max_workers is not None:
+        if max_workers < 0:
+            errors.append("max_workers must be non-negative")
+        elif len(packets) > max_workers:
+            errors.append(f"wave contains {len(packets)} packets; ceiling is {max_workers}")
 
     ids: set[str] = set()
     for index, packet in enumerate(packets):
@@ -75,18 +87,36 @@ def validate_wave(packets: Any, max_workers: int = 5) -> list[str]:
             else:
                 ids.add(packet_id)
 
+    completed = set(completed_ids or [])
+    if len(completed) != len(completed_ids or []):
+        errors.append("completed_ids must not contain duplicates")
+    for packet_id in completed & ids:
+        errors.append(f"packet id is both completed and in this wave: {packet_id}")
+
     for index, packet in enumerate(packets):
         if not isinstance(packet, dict):
             continue
-        for dependency in packet.get("dependencies", []):
+        dependencies = packet.get("dependencies", [])
+        if not isinstance(dependencies, list):
+            continue
+        for dependency in dependencies:
+            if not isinstance(dependency, str) or not dependency.strip():
+                continue
             if dependency in ids:
                 errors.append(
                     f"wave[{index}] depends on {dependency}; move it to a later wave"
                 )
+            elif completed_ids is not None and dependency not in completed:
+                errors.append(f"wave[{index}] has unknown dependency: {dependency}")
 
     writers: list[tuple[int, dict[str, Any], list[str]]] = []
     for index, packet in enumerate(packets):
-        if not isinstance(packet, dict) or packet.get("read_only") is True:
+        if not isinstance(packet, dict):
+            continue
+        role = ROLE_REGISTRY.get(canonical_role(packet.get("role", "")), {})
+        if not role or not role.get("may_write") or packet.get(
+            "read_only", role.get("default_read_only", False)
+        ) is True:
             continue
         patterns = ownership_patterns(packet.get("ownership"))
         if not patterns:
@@ -120,26 +150,60 @@ def ownership_patterns(value: Any) -> list[str]:
 
 
 def patterns_overlap(left: str, right: str) -> bool:
-    left = left.rstrip("/")
-    right = right.rstrip("/")
+    left_parts = left.replace("\\", "/").strip("/").split("/")
+    right_parts = right.replace("\\", "/").strip("/").split("/")
+    pending = [(0, 0)]
+    seen = set()
+    while pending:
+        left_index, right_index = pending.pop()
+        state = (left_index, right_index)
+        if state in seen:
+            continue
+        seen.add(state)
+        if left_index == len(left_parts) and right_index == len(right_parts):
+            return True
+        left_part = left_parts[left_index] if left_index < len(left_parts) else None
+        right_part = right_parts[right_index] if right_index < len(right_parts) else None
+        if left_part == "**":
+            pending.append((left_index + 1, right_index))
+            if right_part is not None and right_part != "**":
+                pending.append((left_index, right_index + 1))
+        if right_part == "**":
+            pending.append((left_index, right_index + 1))
+            if left_part is not None and left_part != "**":
+                pending.append((left_index + 1, right_index))
+        if (
+            left_part is not None
+            and right_part is not None
+            and left_part != "**"
+            and right_part != "**"
+        ):
+            if segment_patterns_overlap(left_part, right_part):
+                pending.append((left_index + 1, right_index + 1))
+    return compatible_prefix(left_parts, right_parts) or compatible_prefix(
+        right_parts, left_parts
+    )
+
+
+def compatible_prefix(prefix: list[str], path: list[str]) -> bool:
+    return len(prefix) < len(path) and all(
+        segment_patterns_overlap(left, right)
+        for left, right in zip(prefix, path)
+    )
+
+
+def segment_patterns_overlap(left: str, right: str) -> bool:
     if left == right:
         return True
-    left_base = left[:-3].rstrip("/") if left.endswith("/**") else left
-    right_base = right[:-3].rstrip("/") if right.endswith("/**") else right
-    if left.endswith("/**") or right.endswith("/**"):
-        return (
-            left_base == right_base
-            or left_base.startswith(right_base + "/")
-            or right_base.startswith(left_base + "/")
-        )
-    if fnmatch.fnmatchcase(left, right) or fnmatch.fnmatchcase(right, left):
-        return True
-    left_literal = left.split("*", 1)[0].split("?", 1)[0].rstrip("/")
-    right_literal = right.split("*", 1)[0].split("?", 1)[0].rstrip("/")
-    return bool(left_literal and right_literal and (
-        left_literal.startswith(right_literal + "/")
-        or right_literal.startswith(left_literal + "/")
-    ))
+    left_has_glob = any(char in left for char in "*?[")
+    right_has_glob = any(char in right for char in "*?[")
+    if not left_has_glob:
+        return fnmatch.fnmatchcase(left, right)
+    if not right_has_glob:
+        return fnmatch.fnmatchcase(right, left)
+    # ponytail: ambiguous glob pairs conflict conservatively; use literal paths
+    # if that over-serializes.
+    return True
 
 
 if __name__ == "__main__":

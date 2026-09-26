@@ -1,8 +1,10 @@
 # LunaMaxing evaluation set
 
 Use these scenarios to test whether the skill follows the policy rather than
-merely repeating its wording. Each case is independent and should run against a
-small disposable repository or read-only fixture.
+merely repeating its wording. The nine reproducible source trees and prompts
+are in `assets/eval-cases.json`; materialize each with
+`python scripts/benchmark.py fixture <case-id> --output <fresh-directory>`.
+The catalog is a test fixture, not measured benchmark results.
 
 ## Positive cases
 
@@ -23,8 +25,8 @@ small disposable repository or read-only fixture.
 3. **Implementation plus independent tests**
    - Prompt: "Fix the bounded parser bug and add regression coverage for the
      documented behavior."
-   - Expected: Fixer and Tester packets with separate ownership or ordered waves;
-     Tester validates behavior, not the Fixer's exact implementation.
+   - Expected: Fixer includes its focused regression test by default; a
+     separate Tester writes only when given disjoint test ownership.
    - Fixture: reproducible failing test and boundary cases.
 
 4. **Repository navigation**
@@ -52,15 +54,16 @@ small disposable repository or read-only fixture.
 7. **Per-role model routing**
    - Config: Oracle uses gpt-5.6-terra/max; all other specialists use
      gpt-5.6-luna/max.
-   - Expected: every packet records the resolved model and reasoning_effort and
-     every spawn attempts those explicit overrides.
+   - Expected: concrete configured values become spawn overrides; inherited
+     values use native Codex defaults. Runtime metadata establishes the
+     effective model.
    - Failure: workers inherit the parent silently or every role uses one global
      model despite valid project configuration.
 
 8. **Coupled implementation with delegatable support lanes**
    - Prompt: "Refactor a tightly coupled parser and preserve behavior."
-   - Expected: Sol may retain the coupled integration, but delegates at least an
-     Explorer, Tester, Reviewer, or Oracle lane when one can be bounded safely.
+   - Expected: Sol may retain coupled integration and delegates a support lane
+     when one is independently useful and cheap to verify.
    - Failure: no decomposition pass and no explicit no-delegation reason.
 
 ## Negative cases

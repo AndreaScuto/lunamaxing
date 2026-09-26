@@ -19,7 +19,7 @@ A packet is complete only when it answers these questions:
 | context | optional | The minimum facts needed to work safely |
 | acceptance_criteria | yes | Observable conditions for success |
 | validation | yes | Commands, checks, sources, or fixtures to inspect |
-| ownership | write work | The single writable domain owned by this worker |
+| ownership | every writer | The non-empty writable path domain owned by this worker |
 | dependencies | optional | Packet IDs or prerequisites; use [] when none |
 | output_contract | optional | Default: status, summary, files_changed, tests_run, evidence |
 
@@ -82,6 +82,11 @@ Before spawning, Sol checks that scope and ownership do not overlap with other
 write-capable packets in the same wave. If they do, split the domain or put the
 packets in different waves.
 
+`scripts/roles.py` is the canonical role registry. Explorer, Librarian,
+Oracle, and Reviewer cannot write. Tester defaults to read-only and may write
+only in an explicitly owned test path. Fixer and Designer may write when they
+declare ownership. An omitted ownership field never makes a writer safe.
+
 ## Worker output contract
 
 Workers return concise structured output:
@@ -111,7 +116,8 @@ unresolved_risks:
 
 Rules:
 
-- DONE requires evidence and a scope check; a summary alone is not enough.
+- DONE requires relevant non-empty evidence and a scope check; a summary alone
+  is not enough. Workers should tie claims to acceptance criteria when useful.
 - model_used and reasoning_effort_used are accepted only when corroborated by
   the spawn call or runtime metadata; a worker cannot attest its own model.
   model_fallback explains any difference from the requested packet.
@@ -166,6 +172,11 @@ verification_contract:
 Sol must inspect the actual working tree, not only the worker's reported
 files. If the worker edited outside scope, reject or repair in Sol before
 integration.
+
+`scripts/check_git.py packet.json --repo <project-root>` compares actual
+uncommitted Git paths (including untracked files) with scope, ownership, and
+forbidden paths. Run it from a known clean baseline; if Git state is
+unavailable it reports `verification unavailable` rather than pass.
 
 Sol must also compare the runtime model with the resolved route. If runtime
 metadata disagrees with the packet, record it as requested -> effective
@@ -249,7 +260,8 @@ pretending to run workers:
 ~~~text
 python scripts/check_packet.py packet.json --kind packet
 python scripts/check_packet.py result.json --kind result --packet packet.json
-python scripts/check_wave.py wave.json --max-workers 5
+python scripts/check_wave.py wave.json
+python scripts/check_git.py packet.json --repo <project-root>
 python scripts/check_state_log.py state-log.json
 ~~~
 
@@ -258,8 +270,9 @@ a wave array containing those objects. All packet fields above, including model
 and reasoning_effort, remain required inside a wave.
 
 The wave checker rejects missing packet fields, duplicate IDs, same-wave
-dependencies, worker counts above the ceiling, and overlapping writable
-ownership. Read-only packets do not create write conflicts.
+dependencies, and overlapping writable ownership. No default LunaMaxing
+ceiling truncates a wave. `--max-workers N` is available only for an explicit
+user cap. Read-only packets do not create write conflicts.
 
 A state-log file contains a states array and may set max_retries:
 

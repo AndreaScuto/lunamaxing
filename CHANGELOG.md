@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.0 — 2026-09-26
+
+- Added one canonical role registry for validation, model configuration, and optional native Codex agent generation.
+- Enforced immutable read-only roles, test-only ownership for writable Tester packets, and explicit ownership for every writer.
+- Required evidence for DONE results and added a Git-state checker for actual scope, ownership, and forbidden-path changes.
+- Removed the default five-worker ceiling; Codex controls runtime capacity, with an optional explicit project limit.
+- Added an offline interactive wizard for per-role model and reasoning settings, with migration guidance for obsolete delegation fields.
+- Added optional safe generation of seven project-local Codex agents.
+- Added nine reproducible evaluation fixtures, null handling for unavailable telemetry, and matched-task benchmark comparison.
+
 ## 0.5.0 — 2026-09-23
 
 - Replaced eager worker quotas with a judgment threshold: trivial work stays in Sol, parallel waves need two or more independent lanes.

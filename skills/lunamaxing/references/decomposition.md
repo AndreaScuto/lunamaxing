@@ -89,14 +89,16 @@ Sol may retain the coupled edit while still delegating evidence-producing work.
 
 ## No-delegation gate
 
-Threshold, not quotas (legacy min_workers_nontrivial / target_workers_complex
-default to 0 and are ignored):
-
-1. <20 lines / 1 file / low-risk stays in Sol with a one-line
-   no-delegation reason;
-2. two or more independently ready packets run in parallel first;
-3. zero workers on non-trivial work is valid when the user requires local
+1. A truly isolated, low-risk action may stay in Sol.
+2. Two or more useful independently ready packets should be dispatched before
+   dependent work, with disjoint writer ownership.
+3. Stop splitting when the coordination and verification cost exceeds the
+   benefit of a narrower packet.
+4. Zero workers on non-trivial work is valid when the user requires local
    execution, the runtime cannot spawn, or no safe bounded packet remains.
+
+No default LunaMaxing worker ceiling truncates the graph. Codex enforces its
+own runtime capacity; an explicit user max_workers remains an optional limit.
 
 Record the concrete no-delegation reason. The following are insufficient:
 

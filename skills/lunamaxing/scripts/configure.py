@@ -7,20 +7,20 @@ import argparse
 import copy
 import json
 from pathlib import Path
+import sys
 from typing import Any, Iterable
 
 SKILL_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG_PATH = SKILL_ROOT / "assets" / "lunamaxing.example.json"
-AGENT_ROLES = (
-    "oracle",
-    "explorer",
-    "librarian",
-    "designer",
-    "fixer",
-    "tester",
-    "reviewer",
-)
-ROLE_ALIASES = {"researcher": "librarian"}
+try:
+    from .roles import AGENT_ROLES, ROLE_ALIASES
+except ImportError:
+    # Support both direct CLI execution and loading this file as a standalone module.
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    try:
+        from roles import AGENT_ROLES, ROLE_ALIASES
+    finally:
+        sys.path.pop(0)
 REASONING_EFFORTS = {
     "inherit",
     "none",
@@ -38,10 +38,17 @@ MODEL_FIELDS = {"model", "reasoning_effort"}
 DELEGATION_FIELDS = {
     "mode",
     "max_workers",
-    "min_workers_nontrivial",
-    "target_workers_complex",
     "max_retries_per_packet",
-    "decompose_before_local",
+}
+OBSOLETE_DELEGATION_FIELDS = {
+    "min_workers_nontrivial": (
+        "remove it; non-trivial tasks are decomposed automatically, and max_workers "
+        "can cap parallelism"
+    ),
+    "target_workers_complex": (
+        "remove it; worker count is selected per task, and max_workers can cap parallelism"
+    ),
+    "decompose_before_local": "remove it; decomposition now happens before local implementation",
 }
 
 
@@ -50,6 +57,8 @@ def main() -> int:
     try:
         if args.command == "init":
             return init_config(args.path)
+        if args.command == "interactive":
+            return interactive_config(args.path)
         source = load_json(args.path) if args.path.is_file() else {}
         if args.command == "validate":
             if not args.path.is_file():
@@ -73,6 +82,11 @@ def parse_args() -> argparse.Namespace:
 
     init_parser = subparsers.add_parser("init", help="create .lunamaxing.json")
     init_parser.add_argument("path", nargs="?", type=Path, default=Path(".lunamaxing.json"))
+
+    interactive_parser = subparsers.add_parser(
+        "interactive", help="interactively create or edit a configuration"
+    )
+    interactive_parser.add_argument("path", nargs="?", type=Path, default=Path(".lunamaxing.json"))
 
     validate_parser = subparsers.add_parser("validate", help="validate a config file")
     validate_parser.add_argument("path", nargs="?", type=Path, default=Path(".lunamaxing.json"))
@@ -98,6 +112,93 @@ def init_config(path: Path) -> int:
     path.write_text(DEFAULT_CONFIG_PATH.read_text(encoding="utf-8"), encoding="utf-8")
     print(f"LunaMaxing configuration written to {path}")
     return 0
+
+
+def interactive_config(path: Path) -> int:
+    exists = path.exists()
+    source = load_json(path) if exists else {}
+    delegation = source.get("delegation")
+    if isinstance(delegation, dict):
+        for field, advice in OBSOLETE_DELEGATION_FIELDS.items():
+            if field in delegation:
+                print(
+                    f"Obsolete delegation.{field}; {advice}. "
+                    "It will be removed only if you confirm."
+                )
+                del delegation[field]
+    current = resolve_config(source)
+    updated = copy.deepcopy(current)
+
+    for role in ("orchestrator", *AGENT_ROLES):
+        selected = (
+            updated["orchestrator"]
+            if role == "orchestrator"
+            else updated["agents"][role]
+        )
+        selected["model"] = prompt_model(role, selected["model"])
+        selected["reasoning_effort"] = prompt_effort(role, selected["reasoning_effort"])
+
+    errors = validate_config(updated)
+    if errors:
+        raise ValueError("; ".join(errors))
+
+    print("\nConfiguration summary:")
+    for role in ("orchestrator", *AGENT_ROLES):
+        selected = (
+            updated["orchestrator"]
+            if role == "orchestrator"
+            else updated["agents"][role]
+        )
+        print(f"  {role}: {selected['model']} / {selected['reasoning_effort']}")
+
+    if exists and input(f"Overwrite {path}? [y/N] ").strip().lower() not in {
+        "y",
+        "yes",
+    }:
+        print("Configuration unchanged.")
+        return 0
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(updated, indent=2) + "\n", encoding="utf-8")
+    print(f"LunaMaxing configuration written to {path}")
+    return 0
+
+
+def prompt_model(role: str, current: str) -> str:
+    while True:
+        value = input(
+            f"{role} model [{current}] (Enter=keep, inherit, or model ID): "
+        ).strip()
+        if not value or value.lower() in {"current", "keep"}:
+            return current
+        if value.lower() == "inherit":
+            return "inherit"
+        if value:
+            return value
+
+
+def prompt_effort(role: str, current: str) -> str:
+    choices = (
+        "inherit",
+        "none",
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra",
+    )
+    while True:
+        value = input(
+            f"{role} reasoning_effort [{current}] "
+            f"(Enter=keep; {', '.join(choices)}): "
+        ).strip().lower()
+        if not value or value in {"current", "keep"}:
+            return current
+        if value in REASONING_EFFORTS:
+            return value
+        print(f"Invalid reasoning effort. Choose one of: {', '.join(choices)}")
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -151,7 +252,9 @@ def apply_override(config: dict[str, Any], expression: str) -> None:
             raise ValueError(f"unknown override path: {raw_path}")
         target = target[part]
     leaf = parts[-1]
-    if not isinstance(target, dict) or leaf not in target:
+    if not isinstance(target, dict) or (
+        leaf not in target and parts != ["delegation", "max_workers"]
+    ):
         raise ValueError(f"unknown override path: {raw_path}")
     try:
         value = json.loads(raw_value)
@@ -187,26 +290,6 @@ def validate_config(config: Any) -> list[str]:
     if delegation is not None:
         errors.extend(validate_delegation(delegation))
 
-    effective = deep_merge(default_config(), config)
-    values = effective.get("delegation")
-    if isinstance(values, dict):
-        minimum = values.get("min_workers_nontrivial")
-        target = values.get("target_workers_complex")
-        maximum = values.get("max_workers")
-    else:
-        minimum = target = maximum = None
-    if all(
-        isinstance(value, int) and not isinstance(value, bool)
-        for value in (minimum, target, maximum)
-    ):
-        if minimum > maximum:
-            errors.append("delegation.min_workers_nontrivial cannot exceed max_workers")
-        if target > maximum:
-            errors.append("delegation.target_workers_complex cannot exceed max_workers")
-        if target < minimum:
-            errors.append(
-                "delegation.target_workers_complex cannot be below min_workers_nontrivial"
-            )
     return sorted(set(errors))
 
 
@@ -218,10 +301,12 @@ def validate_model_config(value: Any, path: str) -> list[str]:
         for field in sorted(set(value) - MODEL_FIELDS)
     ]
     model = value.get("model")
-    if model is not None and (not isinstance(model, str) or not model.strip()):
+    if "model" in value and (not isinstance(model, str) or not model.strip()):
         errors.append(f"{path}.model must be a non-empty string")
     effort = value.get("reasoning_effort")
-    if effort is not None and effort not in REASONING_EFFORTS:
+    if "reasoning_effort" in value and (
+        not isinstance(effort, str) or effort not in REASONING_EFFORTS
+    ):
         errors.append(
             f"{path}.reasoning_effort must be one of: "
             + ", ".join(sorted(REASONING_EFFORTS))
@@ -233,43 +318,38 @@ def validate_delegation(value: Any) -> list[str]:
     if not isinstance(value, dict):
         return ["delegation must be an object"]
     errors = [
-        f"unknown field: delegation.{field}"
-        for field in sorted(set(value) - DELEGATION_FIELDS)
+        f"delegation.{field} is obsolete; {advice}"
+        for field, advice in OBSOLETE_DELEGATION_FIELDS.items()
+        if field in value
     ]
+    errors.extend(
+        f"unknown field: delegation.{field}"
+        for field in sorted(set(value) - DELEGATION_FIELDS - set(OBSOLETE_DELEGATION_FIELDS))
+    )
     mode = value.get("mode")
-    if mode is not None and mode not in DELEGATION_MODES:
+    if "mode" in value and (
+        not isinstance(mode, str) or mode not in DELEGATION_MODES
+    ):
         errors.append(
             "delegation.mode must be one of: "
             + ", ".join(sorted(DELEGATION_MODES))
         )
-    for field in (
-        "max_workers",
-        "min_workers_nontrivial",
-        "target_workers_complex",
-        "max_retries_per_packet",
-    ):
-        number = value.get(field)
-        if number is not None and (
-            not isinstance(number, int) or isinstance(number, bool)
-        ):
-            errors.append(f"delegation.{field} must be an integer")
     maximum = value.get("max_workers")
-    if (
-        isinstance(maximum, int)
-        and not isinstance(maximum, bool)
-        and not 1 <= maximum <= 5
+    if "max_workers" in value and maximum is not None and (
+        not isinstance(maximum, int) or isinstance(maximum, bool) or maximum < 1
     ):
-        errors.append("delegation.max_workers must be between 1 and 5")
-    for field in ("min_workers_nontrivial", "target_workers_complex"):
-        number = value.get(field)
-        if isinstance(number, int) and not isinstance(number, bool) and not 0 <= number <= 5:
-            errors.append(f"delegation.{field} must be between 0 and 5")
+        errors.append("delegation.max_workers must be a positive integer or null")
     retries = value.get("max_retries_per_packet")
-    if isinstance(retries, int) and not isinstance(retries, bool) and not 0 <= retries <= 2:
+    if "max_retries_per_packet" in value and (
+        not isinstance(retries, int) or isinstance(retries, bool)
+    ):
+        errors.append("delegation.max_retries_per_packet must be an integer")
+    if (
+        isinstance(retries, int)
+        and not isinstance(retries, bool)
+        and not 0 <= retries <= 2
+    ):
         errors.append("delegation.max_retries_per_packet must be between 0 and 2")
-    decompose = value.get("decompose_before_local")
-    if decompose is not None and not isinstance(decompose, bool):
-        errors.append("delegation.decompose_before_local must be boolean")
     return errors
 
 

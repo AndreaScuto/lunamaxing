@@ -45,7 +45,11 @@ REQUIRED_AGENT_KEYS = ("display_name:", "short_description:", "default_prompt:")
 REQUIRED_RESOURCES = (
     "assets/lunamaxing.example.json",
     "assets/lunamaxing.schema.json",
+    "assets/eval-cases.json",
     "scripts/configure.py",
+    "scripts/roles.py",
+    "scripts/check_git.py",
+    "scripts/generate_agents.py",
 )
 SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:[-+][0-9A-Za-z.-]+)?$")
 

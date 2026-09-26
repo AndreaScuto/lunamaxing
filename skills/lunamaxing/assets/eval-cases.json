@@ -1,0 +1,74 @@
+[
+  {
+    "id": "trivial-single-file",
+    "category": "trivial_change",
+    "prompt": "Correct the spelling mistake in README.md.",
+    "acceptance": ["README says 'the result'", "Only README.md changes"],
+    "validation": ["git diff -- README.md"],
+    "files": {"README.md": "Show teh result.\n"}
+  },
+  {
+    "id": "repository-reconnaissance",
+    "category": "reconnaissance",
+    "prompt": "Find the session invalidation implementation, every static caller, and its tests. Do not edit files.",
+    "acceptance": ["Identify src/session.py:invalidate", "Identify src/api.py caller", "Identify tests/test_session.py"],
+    "validation": ["rg -n 'invalidate' src tests"],
+    "files": {"src/session.py": "def invalidate(store, token):\n    store.discard(token)\n", "src/api.py": "from src.session import invalidate\n\ndef logout(store, token):\n    invalidate(store, token)\n", "tests/test_session.py": "from src.session import invalidate\n\ndef test_invalidate():\n    tokens = {'a'}\n    invalidate(tokens, 'a')\n    assert not tokens\n"}
+  },
+  {
+    "id": "bounded-bug-fix",
+    "category": "bug_fix",
+    "prompt": "Fix parse_pair so values containing '=' are preserved. Add a regression test.",
+    "acceptance": ["parse_pair('a=b=c') returns ('a', 'b=c')", "A regression test passes"],
+    "validation": ["python -m unittest discover -s tests"],
+    "files": {"src/parser.py": "def parse_pair(text):\n    key, value = text.split('=')\n    return key, value\n", "tests/test_parser.py": "import unittest\nfrom src.parser import parse_pair\n\nclass ParserTests(unittest.TestCase):\n    def test_simple(self):\n        self.assertEqual(parse_pair('a=b'), ('a', 'b'))\n"}
+  },
+  {
+    "id": "parallel-independent-fixes",
+    "category": "parallel_fixes",
+    "prompt": "Fix both independent functions and their tests. Assign disjoint ownership for src/add.py and src/multiply.py.",
+    "acceptance": ["add(2, 3) == 5", "multiply(2, 3) == 6", "No overlapping writers"],
+    "validation": ["python -m unittest discover -s tests"],
+    "files": {"src/add.py": "def add(a, b):\n    return a - b\n", "src/multiply.py": "def multiply(a, b):\n    return a + b\n", "tests/test_math.py": "import unittest\nfrom src.add import add\nfrom src.multiply import multiply\n\nclass MathTests(unittest.TestCase):\n    def test_add(self):\n        self.assertEqual(add(2, 3), 5)\n    def test_multiply(self):\n        self.assertEqual(multiply(2, 3), 6)\n"}
+  },
+  {
+    "id": "multi-module-feature",
+    "category": "feature",
+    "prompt": "Add a tag field to Note and expose it through format_note. Preserve existing title behavior.",
+    "acceptance": ["A note can carry a tag", "Formatted output includes a nonempty tag", "Untyped notes still format"],
+    "validation": ["python -m unittest discover -s tests"],
+    "files": {"src/model.py": "class Note:\n    def __init__(self, title):\n        self.title = title\n", "src/service.py": "def format_note(note):\n    return note.title\n", "tests/test_note.py": "import unittest\nfrom src.model import Note\nfrom src.service import format_note\n\nclass NoteTests(unittest.TestCase):\n    def test_title(self):\n        self.assertEqual(format_note(Note('hello')), 'hello')\n"}
+  },
+  {
+    "id": "frontend-backend",
+    "category": "frontend_backend",
+    "prompt": "Add a status endpoint in api.py and display its value in web/index.html. Keep ownership separate across API and UI.",
+    "acceptance": ["API returns a status value", "UI presents the status", "Separate ownership domains"],
+    "validation": ["python -m unittest discover -s tests", "Inspect web/index.html"],
+    "files": {"api.py": "def health():\n    return {'ok': True}\n", "web/index.html": "<!doctype html><title>Status</title><main>Welcome</main>\n", "tests/test_api.py": "import unittest\nfrom api import health\n\nclass ApiTests(unittest.TestCase):\n    def test_health(self):\n        self.assertTrue(health()['ok'])\n"}
+  },
+  {
+    "id": "failed-first-implementation",
+    "category": "retry",
+    "prompt": "Make safe_divide return None for a zero denominator and preserve negative-number division. If a first patch fails the tests, correct the packet before the single retry.",
+    "acceptance": ["Zero denominator returns None", "safe_divide(-6, 2) == -3", "Retry count is bounded"],
+    "validation": ["python -m unittest discover -s tests"],
+    "files": {"src/divide.py": "def safe_divide(a, b):\n    return a / b\n", "tests/test_divide.py": "import unittest\nfrom src.divide import safe_divide\n\nclass DivideTests(unittest.TestCase):\n    def test_negative(self):\n        self.assertEqual(safe_divide(-6, 2), -3)\n    def test_zero(self):\n        self.assertIsNone(safe_divide(4, 0))\n"}
+  },
+  {
+    "id": "risky-diff-review",
+    "category": "review",
+    "prompt": "Review auth.py for security and data exposure risks. Report findings with file locations; do not edit.",
+    "acceptance": ["Identify the token log exposure", "Cite auth.py location", "No files changed"],
+    "validation": ["rg -n 'token|print' auth.py"],
+    "files": {"auth.py": "def login(token, expected):\n    print('token:', token)\n    return token == expected\n"}
+  },
+  {
+    "id": "external-api-research",
+    "category": "research",
+    "prompt": "Using current official Python documentation, verify how urllib.parse.urlencode handles repeated query values and cite the source. Do not edit.",
+    "acceptance": ["Cite the official Python documentation", "Distinguish observed documentation from inference", "No files changed"],
+    "validation": ["Inspect source URL and Git status"],
+    "files": {"README.md": "This project builds URLs using urllib.parse.urlencode.\n"}
+  }
+]

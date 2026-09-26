@@ -24,72 +24,49 @@ Run representative tasks with:
 | sol_xhigh_luna | Sol xhigh plus bounded Luna workers |
 
 Keep the repository revision, task prompt, tools, model availability, and
-validation commands comparable. Record unavailable settings instead of
-silently substituting another strategy.
+validation commands comparable. The summary compares only task IDs present in
+both strategies; it reports no speedup when there is no matched task. Record
+unavailable settings instead of silently substituting another strategy.
 
-## Task categories
+## Reproducible cases
 
-Include multiple examples of:
+`assets/eval-cases.json` contains nine fixed task prompts and source trees:
+trivial edit, reconnaissance, bounded bug, independent fixes, multi-module
+feature, frontend plus backend, failed first attempt, risky review, and
+external API research. Materialize a fresh copy for each strategy:
 
-- simple bug fix;
-- multi-module feature;
-- refactor;
-- test expansion;
-- documentation/API research;
-- frontend plus backend work;
-- ambiguous production bug;
-- code review;
-- trivial one-file edit as a no-delegation control.
+~~~text
+python scripts/benchmark.py fixture bounded-bug-fix --output benchmark/sol-only
+python scripts/benchmark.py fixture bounded-bug-fix --output benchmark/lunamaxing
+~~~
 
-Each task needs a fixed prompt, acceptance criteria, validation commands, and a
-fresh or resettable repository state.
+Run each from the same initial files, model availability, and acceptance
+criteria. Record actual observations in separate benchmark run records.
 
 ## Run record
 
-Store one JSON object per task/strategy in a file with a top-level runs array:
+Store measured objects per task/strategy in a top-level runs array. An empty
+template contains no invented telemetry:
 
 ~~~json
 {
-  "task_id": "auth-refresh-001",
-  "category": "bug_fix",
-  "strategy": "sol_high_luna",
-  "duration_s": 312.4,
-  "total_tokens": 18400,
-  "orchestrator_context_tokens": 9200,
-  "tool_calls": 27,
-  "tests_passed": true,
-  "regressions": 0,
-  "human_review_defects": 0,
-  "retries": 1,
-  "write_conflicts": 0,
-  "worker_outputs_rejected": 1,
-  "verified_useful": true,
-  "delegation_mode": "eager",
-  "delegation_candidates": 3,
-  "delegated_packets": 3,
-  "worker_count": 3,
-  "orchestrator_model": "gpt-5.6-sol",
-  "role_models": {
-    "oracle": "gpt-5.6-terra",
-    "fixer": "gpt-5.6-luna",
-    "tester": "gpt-5.6-luna"
-  },
-  "notes": "Two independent packets; one retry after scope correction."
+  "schema_version": 1,
+  "runs": []
 }
 ~~~
 
 Required fields:
 
 - task_id, category, strategy;
-- duration_s and total_tokens as non-negative numbers;
-- tests_passed and verified_useful as booleans;
+- duration_s and total_tokens as non-negative numbers or null when unavailable;
+- tests_passed and verified_useful as booleans or null when unavailable;
 - regressions, human_review_defects, retries, write_conflicts, and
   worker_outputs_rejected as non-negative integers.
 - delegation_mode, delegation_candidates, delegated_packets, worker_count,
   orchestrator_model, and the effective role_models mapping.
 
-Unknown measurements must be null in an extension field and excluded from
-averages; do not use zero to hide missing telemetry.
+Unknown measurements must be null and excluded from averages; do not use zero
+to hide missing telemetry. A run record is entered only after an actual run.
 
 ## Metrics
 

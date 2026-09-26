@@ -9,7 +9,7 @@ LunaMaxing is a verification-first manager–worker policy:
 
 ~~~text
 Sol (global context, decisions, integration)
-  -> Luna workers (bounded execution and evidence)
+  -> configured specialist workers (bounded execution and evidence)
   -> Sol (verification, integration, final acceptance)
 ~~~
 
@@ -22,26 +22,29 @@ accepted fact.
 Before beginning any non-trivial request, run one short decomposition pass:
 
 1. List the concrete outputs required for completion.
-2. Split them into discovery, decision, implementation, test, review, and
-   integration lanes until each packet has one objective, one ownership
-   boundary, and one cheap verification path.
-3. Build a dependency graph: dispatch every ready, non-overlapping packet in
-   the same wave; put dependent work in later waves.
+2. Split them by question, module, file ownership, implementation slice, test,
+   or review concern. Repeat while each piece can be executed and verified
+   independently at lower total coordination cost.
+3. Give each packet one objective, bounded scope, explicit exclusions, an
+   owner, acceptance criteria, and cheap validation. Keep architecture and
+   coupled integration with Sol.
+4. Dispatch every useful ready packet with non-overlapping write ownership;
+   put dependent work in later waves. Codex controls actual runtime capacity.
 
 Routing threshold (judgment, not quotas):
 
-- Truly isolated, clear, low-risk action (<20 lines, 1 file) stays in Sol.
-  Record a one-line no-delegation reason.
+- A truly isolated, clear, low-risk action may stay in Sol. Record a one-line
+  no-delegation reason for non-trivial work kept local.
 - Two or more independently ready packets run in parallel before dependent work.
 - Otherwise Sol keeps only the coupled integration and still delegates any
   safe bounded support lane (Explorer map, Tester contract, Oracle check,
   Reviewer diff).
 
-Legacy quota fields min_workers_nontrivial / target_workers_complex default to
-0 and are ignored: never invent work to fill a worker count. The only ceiling
-is max_workers (default 5). Zero workers on non-trivial work is valid when the
-user requires local execution, the runtime cannot spawn, or no safe bounded
-packet remains after decomposition.
+Never invent work to fill a worker count. There is no LunaMaxing default
+ceiling; `delegation.max_workers` is only an optional explicit user limit.
+Respect native Codex capacity and write safety without building a queue or
+scheduler. Zero workers on non-trivial work is valid when the user requires
+local execution, the runtime cannot spawn, or no safe bounded packet remains.
 
 Read references/decomposition.md for lane-splitting operators and a complete
 high-level feature example.
@@ -57,6 +60,10 @@ high-level feature example.
   autonomous post-turn promise for this skill. Use native runtime primitives
   and safe fallbacks.
 - Consensus is not verification. Agent count is not a confidence metric.
+- `scripts/roles.py` is the canonical specialist registry. Oracle, Explorer,
+  Librarian, and Reviewer are always read-only. Tester is read-only by default
+  and may write only in an explicitly owned test scope. Fixer and Designer may
+  write when their packet declares non-empty ownership.
 
 ## Direct work boundary
 
@@ -90,8 +97,8 @@ Sol.
 
 - Reference paths/lines, don't paste files (`src/auth/token.ts:42`, not full
   contents). Keep packets brief; reuse still-valid evidence.
-- Reuse an available specialist session when it fits; prefer the most recently
-  used matching session over a fresh spawn.
+- Reuse an available specialist session only for the same role and repository
+  area while its context remains useful and uncontaminated.
 - Background discipline: launch the complete ready wave together, do only
   non-overlapping Sol work while children run, collect at terminal results,
   then reconcile. Never poll; never promise wake-up after the turn unless the
@@ -99,21 +106,24 @@ Sol.
 - Design handoff: Designer output (layout, spacing, hierarchy, motion,
   affordances) is intentional. Sol may fix copy without changing feel; purely
   mechanical follow-up may go to Fixer, visual judgment goes back to Designer.
-- File ops: <20 lines / 1 file / low-risk stays local. Multi-file or risky
-  work gets explicit ownership domains.
+- A local edit is a judgment call; every writable worker gets an explicit
+  ownership domain.
 
 ## Runtime and model policy (optional)
 
 Model routing is optional, not a gate. Defaults are inherit (use the running
 session) unless a project .lunamaxing.json sets a concrete value.
 
-Use scripts/configure.py to initialize, validate, or resolve
-.lunamaxing.json. Explicit spawn overrides take precedence over global
+Use `scripts/configure.py interactive .lunamaxing.json` to create or edit model
+settings, or use init/validate/resolve for scripting. Explicit spawn overrides
+take precedence over global
 subagent defaults when the runtime supports them. If a model or
 reasoning_effort is unavailable, record the fallback as
 requested -> effective and continue; never discard verified work over a model
 mismatch. A worker's self-reported model is never evidence; runtime metadata
 is authoritative but not a reason to reject an otherwise verified diff.
+Project `.codex/agents/*.toml` role files may override spawn settings; check
+for stale generated files before claiming a routing override took effect.
 
 Example packet routing fields (optional):
 
@@ -129,12 +139,16 @@ when current Codex lifecycle behavior matters. Extra reading is optional:
 references/protocols.md, references/librarian.md, references/benchmarks.md,
 references/configuration.md, references/evals.md.
 
+Optional `scripts/generate_agents.py` creates native Codex specialist files
+from the canonical registry when requested. LunaMaxing also works without
+generated agent files.
+
 ## Decision and execution procedure
 
 1. **Understand.** Restate objective, constraints, and observable DONE criteria.
 2. **Decompose + Route.** Produce the short work graph; assign each lane to
    Explorer, Librarian, Fixer, Designer, Sol, or (escalation) Oracle/Reviewer.
-3. **Specify.** Define acceptance + verification. Send each worker a 5-field
+3. **Specify.** Define acceptance + verification. Send each worker a compact
    packet (below).
 4. **Spawn.** Launch all independent packets together with disjoint ownership.
 5. **Verify + Integrate.** Inspect diff, tests, sources. Accept only verified
@@ -143,9 +157,10 @@ references/configuration.md, references/evals.md.
 
 ## Minimum worker packet
 
-Every packet needs only five fields:
+Every packet needs these compact fields:
 
 ~~~yaml
+role: fixer
 objective: "Invalidate a refresh token during explicit logout."
 scope:
   - src/auth/token.ts
@@ -156,9 +171,11 @@ acceptance_criteria:
   - "logout invalidates the refresh token"
 validation:
   - "npm test -- auth"
+ownership: "src/auth/**"
 ~~~
 
-Optional when useful: context, ownership (`src/auth/**`), dependencies: [],
+Ownership is required for writable packets; omit it for read-only packets.
+Optional when useful: context, dependencies: [],
 read_only: true, risk, stop_conditions (return NEEDS_ORCHESTRATOR_DECISION,
 do not self-expand), plus model / reasoning_effort overrides.
 Use the smallest scope that satisfies the objective.
@@ -172,11 +189,15 @@ Gates (proportional to risk, smallest check that proves the claim):
 - **Validation:** narrowest relevant tests/checks pass; mark not-run with
   reason instead of claiming pass.
 - **Evidence:** claims map to diff, file:line, tool output, or cited source.
+- **Repository state:** `scripts/check_git.py` compares actual changed paths
+  with packet scope, ownership, and exclusions when Git is available.
 - **Integration:** accepted results do not conflict.
 
-Worker statuses are only DONE | NEEDS_ORCHESTRATOR_DECISION | BLOCKED. Allow
-at most one retry per packet with a corrected contract; after a second failure
-Sol investigates locally. Do not spawn workers for consensus.
+Worker statuses are only DONE | NEEDS_ORCHESTRATOR_DECISION | BLOCKED. DONE
+without relevant evidence is invalid. Allow at most one retry per packet only
+with a corrected contract; raise reasoning effort when available. After a
+second failure Sol investigates or asks Oracle for a bounded read-only check.
+Do not spawn workers for consensus.
 
 State shorthand: UNDERSTAND -> DECOMPOSE -> ROUTE -> EXECUTE -> COLLECT ->
 VERIFY -> INTEGRATE -> DONE (plus BLOCKED / RETRY x1).

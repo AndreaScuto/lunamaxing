@@ -1,7 +1,7 @@
 {
   "name": "lunamaxing",
-  "version": "0.5.0",
-  "description": "Judgment-based task decomposition and optional specialist model routing for Codex.",
+  "version": "0.6.0",
+  "description": "Verification-first micro-task orchestration and configurable specialist routing for Codex.",
   "author": {
     "name": "AndreaScuto",
     "url": "https://github.com/AndreaScuto"
@@ -19,8 +19,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "LunaMaxing",
-    "shortDescription": "Judgment-based specialist routing with optional model overrides",
-    "longDescription": "Decompose non-trivial goals into bounded specialist lanes, route each role to a configurable model, and accept results only after orchestrator verification.",
+    "shortDescription": "Verified micro-tasks with configurable specialist models",
+    "longDescription": "Split non-trivial goals into bounded specialist tasks, use native Codex concurrency and optional agent definitions, and accept results only after orchestrator verification.",
     "developerName": "AndreaScuto",
     "category": "Productivity",
     "capabilities": [
