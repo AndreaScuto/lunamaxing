@@ -22,6 +22,11 @@ Only a truly isolated, clear, low-risk action stays entirely in the
 orchestrator. Non-trivial work receives a decomposition pass first; coupled work
 can still delegate discovery, testing, review, or architectural analysis.
 
+The orchestrator can continue integration or other non-overlapping work while
+specialists run. Independent packets launch in the same wave; dependent packets
+wait for the preceding wave. Actual concurrency is limited by Codex and safe
+file ownership, not by a LunaMaxing default worker count.
+
 ## Download
 
 [Download LunaMaxing 0.6.0](https://github.com/AndreaScuto/lunamaxing/releases/download/v0.6.0/LunaMaxing-0.6.0.zip)
@@ -49,6 +54,28 @@ your Codex host. Concrete configured values become explicit spawn overrides;
 `inherit` uses native Codex defaults. The runtime model shown by Codex is the
 effective model, regardless of a worker's self-description.
 
+For example, this project profile puts the orchestrator on Sol/medium, Oracle
+on Sol/high, and every other specialist on Luna/max:
+
+~~~json
+{
+  "orchestrator": {"model": "gpt-6-sol", "reasoning_effort": "medium"},
+  "agents": {
+    "oracle": {"model": "gpt-6-sol", "reasoning_effort": "high"},
+    "explorer": {"model": "gpt-6-luna", "reasoning_effort": "max"},
+    "librarian": {"model": "gpt-6-luna", "reasoning_effort": "max"},
+    "designer": {"model": "gpt-6-luna", "reasoning_effort": "max"},
+    "fixer": {"model": "gpt-6-luna", "reasoning_effort": "max"},
+    "tester": {"model": "gpt-6-luna", "reasoning_effort": "max"},
+    "reviewer": {"model": "gpt-6-luna", "reasoning_effort": "max"}
+  }
+}
+~~~
+
+Save it as `.lunamaxing.json` in the project root, or use the interactive
+wizard above to choose the values. Validate with
+`python skills/lunamaxing/scripts/configure.py validate .lunamaxing.json`.
+
 The orchestrator model inherits the current Codex session by default because a
 skill cannot switch its already-running parent model.
 
@@ -60,6 +87,9 @@ python skills/lunamaxing/scripts/generate_agents.py <project-root> --dry-run
 
 Run the same command without `--dry-run` to create `.codex/agents/*.toml`.
 Existing files are protected unless `--force` is supplied.
+Generated agent files can take precedence over spawn overrides; regenerate
+them after changing model routing. Tester has no fixed read-only sandbox in
+those files because a packet may explicitly authorize test-only writes.
 
 The lane-based routing and scheduler-first boundary are inspired by
 [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim),
