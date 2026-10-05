@@ -306,6 +306,21 @@ class DispatchTests(unittest.TestCase):
                     )
                     self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
                     self.assertIn("configuration file not found", result.stdout + result.stderr)
+            for args in (("resolve",), ("spawn", "fixer")):
+                with self.subTest(args=args):
+                    result = subprocess.run(
+                        [sys.executable, str(CONFIG_SCRIPT), *args],
+                        cwd=directory,
+                        text=True,
+                        capture_output=True,
+                        check=False,
+                    )
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    resolved = json.loads(result.stdout)
+                    if args[0] == "resolve":
+                        resolved = resolved["agents"]["fixer"]
+                    self.assertEqual(resolved["model"], "gpt-6-luna")
+                    self.assertEqual(resolved["reasoning_effort"], "max")
 
 
 class InteractiveConfigTests(unittest.TestCase):
