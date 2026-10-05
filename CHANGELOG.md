@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.1 — 2026-10-05
+
+- Made project configuration resolution and concrete spawn arguments mandatory before delegation; role labels in messages alone do not select a model.
+- Added dispatch argument preparation with canonical role prefixes and bounded forks; rejected full-history forks, unresolved inheritance, and explicitly missing configs.
+- Made resolve/spawn reject explicitly named missing files while retaining packaged defaults for an absent implicit project file.
+- Restored GPT-6 Luna/max defaults for ordinary workers while preserving project model choices and Oracle Terra/max.
+- Stopped silent fallback to the parent model; an observed mismatch stops further launches on that route while preserving verified work.
+- Clarified that automatic nicknames and native model enforcement remain runtime behavior; added regression coverage for dispatch arguments.
+
 ## 0.6.0 — 2026-09-26
 
 - Added one canonical role registry for validation, model configuration, and optional native Codex agent generation.

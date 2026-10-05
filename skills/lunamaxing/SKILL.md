@@ -5,6 +5,8 @@ description: Orchestrate non-trivial coding work by decomposing high-level goals
 
 # LunaMaxing
 
+Version: 0.6.1
+
 LunaMaxing is a verification-first manager–worker policy:
 
 ~~~text
@@ -16,6 +18,21 @@ Sol (global context, decisions, integration)
 The manager is the authority and the default scheduler, not the default
 implementation worker. A worker result is a candidate plus evidence, never an
 accepted fact.
+
+## Routing before delegation
+
+Before every spawn, resolve the project-root `.lunamaxing.json` with this
+skill's `scripts/configure.py`; use packaged defaults only when no project
+file exists. A JSON config is not automatically loaded by Codex.
+Ordinary workers default to GPT-6 Luna/max; Oracle defaults to Terra/max.
+Copy the resolved `model` and `reasoning_effort` into the actual spawn tool
+arguments, not just the worker message. Name tasks `<role>_<task>` using the
+canonical registry (for example `fixer_gps_restart`).
+Use `configure.py dispatch` to prepare those arguments. Use `fork_turns: none`
+or a small positive count: full-history `all` inherits the parent model in
+the collaboration tool and cannot carry overrides. Missing model controls
+or rejected routing must not silently launch workers on the parent model.
+Keep the work local unless the user explicitly authorizes the fallback.
 
 ## Mandatory decomposition pass
 
@@ -109,27 +126,30 @@ Sol.
 - A local edit is a judgment call; every writable worker gets an explicit
   ownership domain.
 
-## Runtime and model policy (optional)
+## Runtime and model policy
 
-Model routing is optional, not a gate. Defaults are inherit (use the running
-session) unless a project .lunamaxing.json sets a concrete value.
+Routing is a pre-spawn requirement. Project settings override packaged
+defaults; a missing file does not authorize inheriting the parent model.
+`inherit` is available only as a deliberate project/invocation choice: disclose
+the effective native settings before using that route. The dispatch helper
+requires concrete settings so it cannot silently omit a routing argument.
 
 Use `scripts/configure.py interactive .lunamaxing.json` to create or edit model
-settings, or use init/validate/resolve for scripting. Explicit spawn overrides
-take precedence over global
-subagent defaults when the runtime supports them. If a model or
-reasoning_effort is unavailable, record the fallback as
-requested -> effective and continue; never discard verified work over a model
-mismatch. A worker's self-reported model is never evidence; runtime metadata
-is authoritative but not a reason to reject an otherwise verified diff.
+settings, or use init/validate/resolve/spawn/dispatch for scripting. Explicit
+spawn overrides take precedence over global subagent defaults when supported.
+If a configured model or effort is unavailable, report the requested route
+and continue locally; a different worker route needs explicit user agreement.
+If runtime metadata reveals a mismatch after launch, stop further launches
+on that route and report it. Preserve verified work rather than automatically
+re-running it and paying twice. A worker's self-report is not model evidence.
 Project `.codex/agents/*.toml` role files may override spawn settings; check
 for stale generated files before claiming a routing override took effect.
 
-Example packet routing fields (optional):
+Example concrete packet routing fields:
 
 ~~~yaml
-model: "inherit"
-reasoning_effort: "inherit"
+model: "gpt-6-luna"
+reasoning_effort: "max"
 ~~~
 
 Inspect runtime capabilities before a real wave. Read
@@ -150,7 +170,8 @@ generated agent files.
    Explorer, Librarian, Fixer, Designer, Sol, or (escalation) Oracle/Reviewer.
 3. **Specify.** Define acceptance + verification. Send each worker a compact
    packet (below).
-4. **Spawn.** Launch all independent packets together with disjoint ownership.
+4. **Spawn.** Apply the routing gate, then launch independent packets with
+   disjoint ownership and explicit tool arguments.
 5. **Verify + Integrate.** Inspect diff, tests, sources. Accept only verified
    results; resolve conflicts in Sol; launch the next ready wave.
 6. **Finish.** Run repository-level checks. Sol alone decides DONE.
@@ -161,6 +182,8 @@ Every packet needs these compact fields:
 
 ~~~yaml
 role: fixer
+model: "gpt-6-luna"
+reasoning_effort: "max"
 objective: "Invalidate a refresh token during explicit logout."
 scope:
   - src/auth/token.ts
@@ -177,7 +200,7 @@ ownership: "src/auth/**"
 Ownership is required for writable packets; omit it for read-only packets.
 Optional when useful: context, dependencies: [],
 read_only: true, risk, stop_conditions (return NEEDS_ORCHESTRATOR_DECISION,
-do not self-expand), plus model / reasoning_effort overrides.
+do not self-expand). Model routing must also reach the spawn tool arguments.
 Use the smallest scope that satisfies the objective.
 
 ## Verification, failure, and state

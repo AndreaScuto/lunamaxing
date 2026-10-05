@@ -7,6 +7,7 @@ import argparse
 import copy
 import json
 from pathlib import Path
+import re
 import sys
 from typing import Any, Iterable
 
@@ -59,7 +60,13 @@ def main() -> int:
             return init_config(args.path)
         if args.command == "interactive":
             return interactive_config(args.path)
-        source = load_json(args.path) if args.path.is_file() else {}
+        if args.command in {"resolve", "spawn", "dispatch"}:
+            path = args.path or Path(".lunamaxing.json")
+            if args.path is not None and not path.is_file():
+                raise ValueError(f"configuration file not found: {path}")
+            source = load_json(path) if path.is_file() else {}
+        else:
+            source = load_json(args.path) if args.path.is_file() else {}
         if args.command == "validate":
             if not args.path.is_file():
                 raise ValueError(f"configuration file not found: {args.path}")
@@ -68,6 +75,19 @@ def main() -> int:
         resolved = resolve_config(source, args.overrides)
         if args.command == "spawn":
             print(json.dumps(spawn_settings(resolved, args.role), indent=2))
+        elif args.command == "dispatch":
+            print(
+                json.dumps(
+                    dispatch_settings(
+                        resolved,
+                        args.role,
+                        args.task_name,
+                        args.message,
+                        args.fork_turns,
+                    ),
+                    indent=2,
+                )
+            )
         else:
             print(json.dumps(resolved, indent=2))
         return 0
@@ -92,15 +112,27 @@ def parse_args() -> argparse.Namespace:
     validate_parser.add_argument("path", nargs="?", type=Path, default=Path(".lunamaxing.json"))
 
     resolve_parser = subparsers.add_parser("resolve", help="print merged effective config")
-    resolve_parser.add_argument("path", nargs="?", type=Path, default=Path(".lunamaxing.json"))
+    resolve_parser.add_argument("path", nargs="?", type=Path)
     resolve_parser.add_argument("--set", dest="overrides", action="append", default=[])
 
     spawn_parser = subparsers.add_parser("spawn", help="print explicit spawn settings for a role")
     spawn_parser.add_argument(
         "role", choices=("orchestrator", *AGENT_ROLES, *ROLE_ALIASES)
     )
-    spawn_parser.add_argument("path", nargs="?", type=Path, default=Path(".lunamaxing.json"))
+    spawn_parser.add_argument("path", nargs="?", type=Path)
     spawn_parser.add_argument("--set", dest="overrides", action="append", default=[])
+
+    dispatch_parser = subparsers.add_parser(
+        "dispatch", help="prepare an explicit collaboration spawn request"
+    )
+    dispatch_parser.add_argument(
+        "role", choices=("orchestrator", *AGENT_ROLES, *ROLE_ALIASES)
+    )
+    dispatch_parser.add_argument("task_name")
+    dispatch_parser.add_argument("path", nargs="?", type=Path)
+    dispatch_parser.add_argument("--message", required=True)
+    dispatch_parser.add_argument("--set", dest="overrides", action="append", default=[])
+    dispatch_parser.add_argument("--fork-turns", default="none")
 
     return parser.parse_args()
 
@@ -365,6 +397,44 @@ def spawn_settings(config: dict[str, Any], role: str) -> dict[str, str]:
         key: value
         for key, value in selected.items()
         if key in MODEL_FIELDS and value != "inherit"
+    }
+
+
+def dispatch_settings(
+    config: dict[str, Any],
+    role: str,
+    task_name: str,
+    message: str,
+    fork_turns: str = "none",
+) -> dict[str, str]:
+    role = ROLE_ALIASES.get(role, role)
+    if role not in AGENT_ROLES:
+        raise ValueError("dispatch requires a worker role")
+    if not re.fullmatch(r"[a-z0-9_]+", task_name):
+        raise ValueError(
+            "task_name must be non-empty and contain only lowercase letters, digits, and underscores"
+        )
+    if not message.strip():
+        raise ValueError("message must be non-empty")
+    if fork_turns != "none":
+        if not re.fullmatch(r"[0-9]+", fork_turns) or not fork_turns.lstrip("0"):
+            raise ValueError("fork_turns must be none or a positive integer")
+        fork_turns = fork_turns.lstrip("0")
+
+    settings = spawn_settings(config, role)
+    for key in ("model", "reasoning_effort"):
+        if key not in settings:
+            raise ValueError(f"dispatch requires a concrete {key} for role: {role}")
+
+    prefix = f"{role}_"
+    while task_name.startswith(prefix):
+        task_name = task_name[len(prefix) :]
+    return {
+        "task_name": f"{prefix}{task_name}",
+        "message": message,
+        "model": settings["model"],
+        "reasoning_effort": settings["reasoning_effort"],
+        "fork_turns": fork_turns,
     }
 
 

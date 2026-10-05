@@ -11,8 +11,8 @@ A packet is complete only when it answers these questions:
 | Field | Required | Meaning |
 | --- | --- | --- |
 | role | yes | Oracle, Explorer, Librarian, Designer, Fixer, Tester, or Reviewer |
-| model | optional | Resolved model ID; defaults to inherit when runtime handles it |
-| reasoning_effort | optional | Resolved effort; defaults to inherit |
+| model | before spawn | Resolved model ID copied into the actual tool call |
+| reasoning_effort | before spawn | Resolved effort copied into the actual tool call |
 | objective | yes | One observable outcome, not a general project goal |
 | scope | yes | Files, symbols, or read-only search boundary |
 | do_not_touch | yes | Explicit forbidden paths, systems, and cleanup |
@@ -179,8 +179,9 @@ forbidden paths. Run it from a known clean baseline; if Git state is
 unavailable it reports `verification unavailable` rather than pass.
 
 Sol must also compare the runtime model with the resolved route. If runtime
-metadata disagrees with the packet, record it as requested -> effective
-fallback and continue; never discard verified work over a model mismatch.
+metadata disagrees with the packet, report requested -> effective and stop
+further launches on that route. Preserve verified work; a different route
+requires explicit user agreement before additional delegation.
 Worker prose is never evidence of its runtime model.
 
 ## State transitions

@@ -13,8 +13,8 @@ Record a yes/no/unknown result for each capability:
 | parallel spawn | launches independent packets together | run one packet at a time |
 | nonblocking child execution | lets Sol do useful work while children run | keep the wave small and collect at explicit safe points |
 | completion notification | tells Sol when a child is ready | poll/collect only while the active turn remains open |
-| per-child model override | selects the configured role model | use runtime default and record fallback |
-| per-child reasoning override | selects configured effort | use runtime default and record fallback |
+| per-child model override | selects the configured role model | keep work local unless the user authorizes inheritance |
+| per-child reasoning override | selects configured effort | keep work local unless the user authorizes another effort |
 | structured child result | preserves status and evidence fields | require a strict text/YAML contract |
 | isolated workdir | prevents write collisions | disjoint ownership and serialized overlap |
 | child cancellation | stops stale or unsafe work | do not start risky packets without a manual stop path |
@@ -43,10 +43,14 @@ spawn is a capacity signal, not evidence that a packet is running.
 
 ## Model and reasoning selection
 
-Resolve .lunamaxing.json before spawning and pass each role's model and
-reasoning_effort explicitly only when an override is needed. Otherwise use
-inherit and the runtime default. A mismatch between requested and effective
-model is recorded as fallback, never a reason to discard verified work.
+Resolve the project-root .lunamaxing.json before every spawn and pass each
+role's concrete model and reasoning_effort into the tool arguments. The file
+is skill configuration, not native Codex configuration. Missing project files
+use packaged Luna/max worker defaults, not implicit parent inheritance.
+`configure.py dispatch` emits role-prefixed task names and a bounded fork.
+The collaboration tool's full-history fork does not accept model overrides;
+use none or a positive history count. Explicit user-selected inheritance is
+the only exception to concrete routing.
 
 Codex supports agents.default_subagent_model and
 agents.default_subagent_reasoning_effort as global fallbacks, while explicit
@@ -59,10 +63,11 @@ The orchestrator is the already-running parent session; the skill cannot switch
 its model mid-turn. A configured concrete orchestrator model is therefore a
 launch requirement, while inherit accepts the current session.
 
-If a configured model or reasoning effort is unavailable, record requested ->
-effective and preserve the role. A model mismatch alone does not invalidate
-verified work. Worker prose is never evidence of its runtime model. A model
-override never transfers final authority away from Sol.
+If configured routing is unavailable, keep work local or obtain agreement on
+a specific fallback. On an observed runtime mismatch, stop additional launches
+on that route and disclose requested -> effective. Preserve already verified
+work. Worker prose is never evidence of its runtime model. A model override
+never transfers final authority away from Sol.
 
 ## Background versus active parallelism
 

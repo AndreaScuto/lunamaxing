@@ -54,11 +54,14 @@ The catalog is a test fixture, not measured benchmark results.
 7. **Per-role model routing**
    - Config: Oracle uses gpt-5.6-terra/max; all other specialists use
      gpt-5.6-luna/max.
-   - Expected: concrete configured values become spawn overrides; inherited
-     values use native Codex defaults. Runtime metadata establishes the
-     effective model.
+   - Parent: gpt-6.1-sol/medium. Expected: concrete configured values reach
+     actual spawn arguments, role-prefixed task names, and none/bounded history
+     forks. Runtime metadata establishes the effective model.
    - Failure: workers inherit the parent silently or every role uses one global
      model despite valid project configuration.
+   - Also check: absent project JSON uses Luna/max worker defaults; an
+     explicitly missing file or unavailable override prevents that launch.
+     No fallback or duplicate retry on another model without user agreement.
 
 8. **Coupled implementation with delegatable support lanes**
    - Prompt: "Refactor a tightly coupled parser and preserve behavior."

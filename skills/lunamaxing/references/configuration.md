@@ -17,19 +17,20 @@ orchestrator and all seven roles. Enter keeps a value, `inherit` uses Codex's
 default, and any supported model ID can be typed. It validates and previews
 the result, then asks before replacing an existing file.
 
-For scripts, `init`, `validate`, `resolve`, and `spawn <role>` remain available.
+For scripts, `init`, `validate`, `resolve`, `spawn <role>`, and `dispatch` are
+available.
 The packaged defaults are:
 
 | Lane | Default model | Reasoning |
 | --- | --- | --- |
 | orchestrator | inherit current session | inherit |
 | oracle | gpt-5.6-terra | max |
-| explorer | inherit | inherit |
-| librarian | inherit | inherit |
-| designer | inherit | inherit |
-| fixer | inherit | inherit |
-| tester | inherit | inherit |
-| reviewer | inherit | inherit |
+| explorer | gpt-6-luna | max |
+| librarian | gpt-6-luna | max |
+| designer | gpt-6-luna | max |
+| fixer | gpt-6-luna | max |
+| tester | gpt-6-luna | max |
+| reviewer | gpt-6-luna | max |
 
 Model strings are deliberately open: replace them with any model ID the current
 Codex host accepts.
@@ -103,14 +104,32 @@ Resolution order is:
 2. project .lunamaxing.json;
 3. explicit invocation or --set overrides.
 
-After resolution, Sol copies each role's model and reasoning_effort into the
-worker packet only when an explicit override is needed. A packet without
-model fields uses inherit and the runtime default. Prefix
-the runtime task name with the canonical role, for example
-`oracle_sqlite_review`, and treat runtime metadata—not the worker's prose—as
-the authoritative record of the model used. On mismatch, record
-requested -> effective fallback and continue; never discard verified work
-over a model label.
+Before every spawn, Sol resolves the project file and copies the role's model
+and reasoning_effort into the actual tool arguments. Model names inside a
+worker message do not select its runtime model. Without a project file, use
+the packaged defaults. An invalid or explicitly named missing file must not
+silently fall back.
+
+To prepare a collaboration tool call, run from the skill directory:
+
+~~~text
+python scripts/configure.py dispatch fixer gps_restart /project/.lunamaxing.json \
+  --message "Fix the GPS restart in the assigned files; include focused tests."
+~~~
+
+Omit the path only when using `.lunamaxing.json` in the current project root
+or packaged defaults if it is absent. Output is a JSON object with canonical
+`task_name`, concrete `model` and `reasoning_effort`, `message`, and
+`fork_turns: "none"`. Pass it to the spawn tool; the helper itself does not
+launch agents or intercept other tool calls. `--fork-turns 3` allows a bounded
+history fork; `all` is rejected because the collaboration tool cannot apply
+model overrides to a full-history fork.
+
+The helper rejects unresolved `inherit` settings. If inheritance was explicitly
+chosen by the user, establish and disclose the native route before spawning
+directly. Runtime metadata—not the worker's prose—establishes the effective
+model. Task names use prefixes such as `oracle_sqlite_review`; automatic
+runtime nicknames are separate and may still be shown by the UI.
 
 Native custom-agent files can override spawn settings. If you generated
 `.codex/agents/*.toml`, regenerate those files after changing model routing,
@@ -140,12 +159,13 @@ Codex also supports global subagent defaults:
 ~~~toml
 [agents]
 enabled = true
-default_subagent_model = "gpt-5.6-luna"
+default_subagent_model = "gpt-6-luna"
 default_subagent_reasoning_effort = "max"
 ~~~
 
-These defaults are useful for unconfigured children. LunaMaxing sends explicit
-overrides only for roles configured with concrete model or effort values.
+These optional global defaults protect unconfigured children in all Codex
+workflows. LunaMaxing does not change them during skill installation and
+still sends concrete role settings explicitly.
 Codex also accepts `agents.max_concurrent_threads_per_session` as an optional
 native capacity setting. LunaMaxing does not set it or assume its default.
 
@@ -176,12 +196,17 @@ five-worker cap.
 
 ## Compatibility and fallback
 
-A configured reasoning level may not be supported by its selected model. When
-the spawn tool rejects a combination, use that model's nearest available
-reasoning level only after disclosing the fallback. If runtime metadata reports
-a different model after launch, record the requested -> effective fallback and
-verify the work normally. Never claim that an override applied based on the
-worker's self-report.
+A configured reasoning level may not be supported by its selected model.
+When the spawn tool rejects routing, keep work local or obtain explicit
+agreement on a specific fallback. If runtime metadata reports a different
+model after launch, stop further launches on that route, disclose requested ->
+effective, and preserve verified work without automatically re-running it.
+Never claim an override applied based on the worker's self-report.
+
+Version 0.6.1 changes unconfigured ordinary workers from inherit to Luna/max.
+Existing project JSON values remain authoritative, including custom models
+and explicit inherit choices. Re-generate optional native agent files if they
+were produced from the old defaults.
 
 Primary references:
 

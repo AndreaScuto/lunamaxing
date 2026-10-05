@@ -10,28 +10,28 @@
       "reasoning_effort": "max"
     },
     "explorer": {
-      "model": "inherit",
-      "reasoning_effort": "inherit"
+      "model": "gpt-6-luna",
+      "reasoning_effort": "max"
     },
     "librarian": {
-      "model": "inherit",
-      "reasoning_effort": "inherit"
+      "model": "gpt-6-luna",
+      "reasoning_effort": "max"
     },
     "designer": {
-      "model": "inherit",
-      "reasoning_effort": "inherit"
+      "model": "gpt-6-luna",
+      "reasoning_effort": "max"
     },
     "fixer": {
-      "model": "inherit",
-      "reasoning_effort": "inherit"
+      "model": "gpt-6-luna",
+      "reasoning_effort": "max"
     },
     "tester": {
-      "model": "inherit",
-      "reasoning_effort": "inherit"
+      "model": "gpt-6-luna",
+      "reasoning_effort": "max"
     },
     "reviewer": {
-      "model": "inherit",
-      "reasoning_effort": "inherit"
+      "model": "gpt-6-luna",
+      "reasoning_effort": "max"
     }
   },
   "delegation": {

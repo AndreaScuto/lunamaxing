@@ -29,7 +29,7 @@ file ownership, not by a LunaMaxing default worker count.
 
 ## Download
 
-[Download LunaMaxing 0.6.0](https://github.com/AndreaScuto/lunamaxing/releases/download/v0.6.0/LunaMaxing-0.6.0.zip)
+[Download LunaMaxing 0.6.1](https://github.com/AndreaScuto/lunamaxing/releases/download/v0.6.1/LunaMaxing-0.6.1.zip)
 
 ## Model routing
 
@@ -39,7 +39,8 @@ Configure the orchestrator and all seven specialists interactively:
 python skills/lunamaxing/scripts/configure.py interactive .lunamaxing.json
 ~~~
 
-The default inherits Codex's model for the orchestrator and ordinary workers;
+The orchestrator inherits the current Codex session; ordinary workers default
+to `gpt-6-luna` with max reasoning.
 Oracle uses `gpt-5.6-terra` with max reasoning for escalation. The wizard
 accepts any model ID supported by your Codex host. You can also override a
 value for one invocation:
@@ -53,6 +54,13 @@ $lunamaxing agents.oracle.model=gpt-6-astra agents.oracle.reasoning_effort=max
 your Codex host. Concrete configured values become explicit spawn overrides;
 `inherit` uses native Codex defaults. The runtime model shown by Codex is the
 effective model, regardless of a worker's self-description.
+
+Routing is required before every spawn. `configure.py dispatch` prepares
+concrete tool arguments, role-prefixed task names, and bounded context so a
+worker does not accidentally inherit the chat model. If configured routing is
+unavailable, LunaMaxing keeps work local until a fallback is explicitly agreed.
+The helper does not intercept native spawning: the orchestrator must use its
+output, and automatic UI nicknames remain controlled by Codex.
 
 For example, this project profile puts the orchestrator on Sol/medium, Oracle
 on Sol/high, and every other specialist on Luna/max:
@@ -142,6 +150,7 @@ python scripts/validate_lunamax.py
 python -m unittest discover -s tests -v
 python scripts/configure.py interactive <project-root>/.lunamaxing.json
 python scripts/configure.py validate <project-root>/.lunamaxing.json
+python scripts/configure.py dispatch fixer gps_restart <project-root>/.lunamaxing.json --message "Bounded task packet"
 python scripts/check_packet.py packet.json --kind packet
 python scripts/check_wave.py wave.json
 python scripts/check_git.py packet.json --repo <project-root>

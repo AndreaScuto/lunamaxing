@@ -1,5 +1,20 @@
 # Runtime notes
 
+## Routing regression — 2026-10-05
+
+A real session supplied a valid per-role project JSON, but some spawn calls
+omitted model and reasoning settings and inherited GPT-6.1 Sol/medium. Other
+calls with explicit settings correctly used Luna. This is an orchestration
+argument omission, not evidence that Codex rejected supported model overrides.
+
+Version 0.6.1 moves routing into the entrypoint's pre-spawn gate and adds
+dispatch argument preparation. Full-history collaboration forks inherit the
+parent and do not accept overrides; use none or bounded history. Tool task
+names carry canonical role prefixes; automatic runtime nicknames are separate.
+The skill and helper cannot intercept a direct native spawn that bypasses
+them. Optional native defaults/agent files can add protection but are not
+installed globally without a separate configuration request.
+
 These notes preserve the assumptions behind the development thesis. They are
 dated and advisory: verify current runtime behavior before relying on them.
 

@@ -35,8 +35,8 @@ class ModelRoutingTests(unittest.TestCase):
         self.assertEqual(resolved["agents"]["oracle"]["model"], "gpt-5.6-terra")
         self.assertEqual(resolved["agents"]["oracle"]["reasoning_effort"], "max")
         for role in ("explorer", "librarian", "designer", "fixer", "tester", "reviewer"):
-            self.assertEqual(resolved["agents"][role]["model"], "inherit")
-            self.assertEqual(resolved["agents"][role]["reasoning_effort"], "inherit")
+            self.assertEqual(resolved["agents"][role]["model"], "gpt-6-luna")
+            self.assertEqual(resolved["agents"][role]["reasoning_effort"], "max")
         self.assertEqual(resolved["delegation"]["mode"], "balanced")
         self.assertNotIn("max_workers", resolved["delegation"])
 
@@ -58,8 +58,8 @@ class ModelRoutingTests(unittest.TestCase):
         )
         self.assertEqual(resolved["orchestrator"]["model"], "gpt-5.6-sol")
         self.assertEqual(resolved["agents"]["fixer"]["model"], "gpt-5.6-sol")
-        self.assertEqual(resolved["agents"]["fixer"]["reasoning_effort"], "inherit")
-        self.assertEqual(resolved["agents"]["designer"]["model"], "inherit")
+        self.assertEqual(resolved["agents"]["fixer"]["reasoning_effort"], "max")
+        self.assertEqual(resolved["agents"]["designer"]["model"], "gpt-6-luna")
 
     def test_inline_override_has_highest_precedence(self) -> None:
         resolved = self.configure.resolve_config(
@@ -147,6 +147,165 @@ class ModelRoutingTests(unittest.TestCase):
         max_workers = schema["properties"]["delegation"]["properties"]["max_workers"]
         self.assertEqual(max_workers["type"], ["integer", "null"])
         self.assertNotIn("maximum", max_workers)
+
+
+class DispatchTests(unittest.TestCase):
+    def run_dispatch(
+        self, *args: str, cwd: Path | None = None
+    ) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, str(CONFIG_SCRIPT), "dispatch", *args],
+            cwd=cwd,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    def test_dispatch_prefixes_task_and_uses_configured_role(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.json"
+            path.write_text(
+                json.dumps(
+                    {"agents": {"fixer": {"model": "vendor/fixer", "reasoning_effort": "high"}}}
+                ),
+                encoding="utf-8",
+            )
+            result = self.run_dispatch(
+                "fixer", "repair_parser", str(path), "--message", "Repair the parser branch."
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(
+                json.loads(result.stdout),
+                {
+                    "task_name": "fixer_repair_parser",
+                    "message": "Repair the parser branch.",
+                    "model": "vendor/fixer",
+                    "reasoning_effort": "high",
+                    "fork_turns": "none",
+                },
+            )
+
+    def test_dispatch_canonicalizes_alias_prefix_and_inline_overrides(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.json"
+            path.write_text(
+                json.dumps(
+                    {"agents": {"librarian": {"model": "vendor/old", "reasoning_effort": "high"}}}
+                ),
+                encoding="utf-8",
+            )
+            result = self.run_dispatch(
+                "researcher",
+                "librarian_librarian_security_review",
+                str(path),
+                "--message",
+                "Review the assigned security issue.",
+                "--set",
+                "agents.librarian.model=vendor/new",
+                "--set",
+                "agents.librarian.reasoning_effort=minimal",
+                "--fork-turns",
+                "4",
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(
+                json.loads(result.stdout),
+                {
+                    "task_name": "librarian_security_review",
+                    "message": "Review the assigned security issue.",
+                    "model": "vendor/new",
+                    "reasoning_effort": "minimal",
+                    "fork_turns": "4",
+                },
+            )
+
+    def test_dispatch_uses_packaged_defaults_when_implicit_config_is_absent(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_dispatch(
+                "tester", "verify_widget", "--message", "Check the widget behavior.", cwd=Path(directory)
+            )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        settings = json.loads(result.stdout)
+        self.assertEqual(settings["model"], "gpt-6-luna")
+        self.assertEqual(settings["reasoning_effort"], "max")
+        self.assertEqual(settings["fork_turns"], "none")
+
+    def test_dispatch_rejects_unroutable_or_malformed_requests(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            missing_path = str(Path(directory) / "missing.json")
+            invalid_requests = (
+                (
+                    "worker role",
+                    ("orchestrator", "task", "--message", "packet"),
+                ),
+                ("task_name", ("fixer", "Bad-Name", "--message", "packet")),
+                ("task_name", ("fixer", "", "--message", "packet")),
+                ("invalid choice", ("unknown", "task", "--message", "packet")),
+                ("message", ("fixer", "task", "--message", "")),
+                ("message", ("fixer", "task", "--message", "   ")),
+                (
+                    "concrete model",
+                    (
+                        "fixer",
+                        "task",
+                        "--message",
+                        "packet",
+                        "--set",
+                        "agents.fixer.model=inherit",
+                    ),
+                ),
+                (
+                    "concrete reasoning_effort",
+                    (
+                        "fixer",
+                        "task",
+                        "--message",
+                        "packet",
+                        "--set",
+                        "agents.fixer.reasoning_effort=inherit",
+                    ),
+                ),
+                (
+                    "configuration file not found",
+                    ("fixer", "task", missing_path, "--message", "packet"),
+                ),
+                (
+                    "fork_turns",
+                    ("fixer", "task", "--message", "packet", "--fork-turns", "all"),
+                ),
+                (
+                    "fork_turns",
+                    ("fixer", "task", "--message", "packet", "--fork-turns", "0"),
+                ),
+                (
+                    "fork_turns",
+                    ("fixer", "task", "--message", "packet", "--fork-turns", "-1"),
+                ),
+                (
+                    "fork_turns",
+                    ("fixer", "task", "--message", "packet", "--fork-turns", "invalid"),
+                ),
+            )
+            for error, request in invalid_requests:
+                with self.subTest(request=request):
+                    result = self.run_dispatch(*request)
+                    output = result.stdout + result.stderr
+                    self.assertNotEqual(result.returncode, 0, output)
+                    self.assertIn(error, output)
+
+    def test_resolve_and_spawn_reject_explicit_missing_config_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            missing_path = str(Path(directory) / "missing.json")
+            for args in (("resolve", missing_path), ("spawn", "fixer", missing_path)):
+                with self.subTest(args=args):
+                    result = subprocess.run(
+                        [sys.executable, str(CONFIG_SCRIPT), *args],
+                        text=True,
+                        capture_output=True,
+                        check=False,
+                    )
+                    self.assertNotEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertIn("configuration file not found", result.stdout + result.stderr)
 
 
 class InteractiveConfigTests(unittest.TestCase):
